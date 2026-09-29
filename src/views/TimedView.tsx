@@ -18,18 +18,16 @@ import {
   startRun,
 } from "../timed";
 import type { RunOptions } from "../timed";
-import type { DrillProgress, Level, Progress, TimedRun } from "../types";
+import type { Level, Progress, TimedRun } from "../types";
 
 const LEVELS: Level[] = ["Warm-up", "Standard", "Hard"];
 
 interface Props {
   progress: Progress;
-  /** Fold the debrief back into the ordinary per-drill progress. */
-  commitDrill: (id: number, patch: Partial<DrillProgress>) => void;
-  addSession: (run: TimedRun) => void;
+  recordSession: (run: TimedRun) => void;
 }
 
-export function TimedView({ progress, commitDrill, addSession }: Props) {
+export function TimedView({ progress, recordSession }: Props) {
   const [run, setRun] = useState<TimedRun | null>(() => loadRun());
 
   const update = useCallback((next: TimedRun | null) => {
@@ -45,8 +43,7 @@ export function TimedView({ progress, commitDrill, addSession }: Props) {
       <Debrief
         run={run}
         update={update}
-        commitDrill={commitDrill}
-        addSession={addSession}
+        recordSession={recordSession}
       />
     );
   }
@@ -357,13 +354,11 @@ function Running({
 function Debrief({
   run,
   update,
-  commitDrill,
-  addSession,
+  recordSession,
 }: {
   run: TimedRun;
   update: (run: TimedRun | null) => void;
-  commitDrill: (id: number, patch: Partial<DrillProgress>) => void;
-  addSession: (run: TimedRun) => void;
+  recordSession: (run: TimedRun) => void;
 }) {
   const score = useMemo(() => scoreRun(run), [run]);
   const [saved, setSaved] = useState(false);
@@ -376,18 +371,7 @@ function Debrief({
   };
 
   const finish = () => {
-    // Fold the session into the ordinary progress so there is one score for the
-    // course rather than two that disagree.
-    for (const id of run.drillIds) {
-      const caught = Object.fromEntries((run.caught[id] ?? []).map((i) => [i, true]));
-      commitDrill(id, {
-        note: run.notes[id] ?? "",
-        revealed: true,
-        revealedAt: Date.now(),
-        caught,
-      });
-    }
-    addSession(run);
+    recordSession(run);
     setSaved(true);
     saveRun(null);
   };

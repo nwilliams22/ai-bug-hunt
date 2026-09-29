@@ -1,4 +1,6 @@
 import type { Progress, DrillProgress, ReviewAttempt, TimedSession, Verdict } from "./types";
+import type { TimedRun } from "./types";
+import { toSession } from "./timed";
 
 // The key is deliberately still v1: the shape only ever gained fields, and
 // normalise() fills them in, so a store written by an earlier build loads
@@ -96,10 +98,12 @@ export function normalise(input: unknown): Progress {
       for (const raw of value) {
         if (typeof raw !== "object" || raw === null) continue;
         const attempt = raw as Record<string, unknown>;
-        if (typeof attempt.note !== "string" || attempt.note.trim().length < 25 ||
+        if (typeof attempt.note !== "string" ||
+            (attempt.note.trim().length < 25 && attempt.source !== "timed") ||
             typeof attempt.revealedAt !== "number" || !Number.isFinite(attempt.revealedAt)) continue;
         attempts.push({ note: attempt.note, revealedAt: attempt.revealedAt,
           caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false,
+          source: attempt.source === "timed" ? "timed" : undefined,
           verdict: normaliseVerdict(attempt.verdict),
           falsePositives: normaliseFalsePositives(attempt.falsePositives) });
       }
@@ -190,6 +194,27 @@ export function updateAttemptAssessment(
   if (!repeats || !Number.isInteger(index) || index < 0 || index >= repeats.length) return progress;
   return { ...progress, reviews: { ...progress.reviews, [id]: repeats.map((item, i) =>
     i === index ? { ...item, ...assessment } : item) } };
+}
+
+/** Record each timed answer once, without replacing an earlier assessment. */
+export function recordTimedRun(progress: Progress, run: TimedRun): Progress {
+  const session = toSession(run);
+  if (progress.sessions.some((item) => item.id === session.id)) return progress;
+  const drills = { ...progress.drills };
+  const reviews = { ...progress.reviews };
+  for (const id of run.drillIds) {
+    const caught = Object.fromEntries((run.caught[id] ?? []).map((index) => [index, true]));
+    const note = run.notes[id] ?? "";
+    if (drills[id]?.revealed) {
+      reviews[id] = [...(reviews[id] ?? []), {
+        note, revealedAt: session.finishedAt, caught, scored: true, source: "timed",
+      }];
+    } else {
+      drills[id] = { note, revealed: true, hintLevel: 0, caught,
+        revealedAt: session.finishedAt };
+    }
+  }
+  return { ...progress, drills, reviews, sessions: [...progress.sessions, session] };
 }
 
 export function exportFile(p: Progress): void {

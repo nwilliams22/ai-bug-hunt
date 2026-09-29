@@ -23,7 +23,7 @@ export function HomeView({ progress }: { progress: Progress }) {
         <p className="note">
           Four parts. A <b>method</b>: six passes you run in a fixed order, so defects
           are found by construction rather than by inspiration. A set of{" "}
-          <b>{DRILLS.length} drills</b> of plausible, confident, defective code, gated so
+          <b>{DRILLS.length} drills</b> of plausible, confident code, gated so
           you must write your review before the answers unlock. A{" "}
           <b>timed mode</b>, because the paid version of this work has a clock on it. And
           a <b>reference</b> of {GOTCHAS.length} language-specific traps for the languages
@@ -69,9 +69,8 @@ export function HomeView({ progress }: { progress: Progress }) {
       <div className="card">
         <h3 className="sec-h sec-h-first">Drills</h3>
         <p className="note">
-          Every drill has between two and six planted defects across several families. The
-          common failure is not finding nothing — it is finding the first thing and
-          stopping.
+          Some reviews call for findings; others call for approval. Check the
+          evidence before deciding, and keep looking after the first finding.
         </p>
         <DrillTable progress={progress} />
       </div>
@@ -105,7 +104,7 @@ export function DrillTable({ progress }: { progress: Progress }) {
               </td>
               <td className="dim">{d.lang}</td>
               <td className="dim">{d.level}</td>
-              <td className="num dim">{d.defects.length}</td>
+              <td className="num dim">{st.revealed ? d.defects.length : "—"}</td>
               <td className="num">
                 {st.revealed ? (
                   <b data-low={caught < d.defects.length / 2 ? "1" : "0"}>

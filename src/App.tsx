@@ -3,7 +3,7 @@ import { LESSONS, MODULES } from "./content/lessons";
 import { DRILLS } from "./content/drills";
 import { GOTCHA_LANGS } from "./content/gotchas";
 import { href, useRoute } from "./route";
-import { drillState, load, save, updateAttemptAssessment } from "./storage";
+import { drillState, load, recordTimedRun, save, updateAttemptAssessment } from "./storage";
 import type { DrillProgress, Progress, Verdict } from "./types";
 import { HomeView, DrillTable } from "./views/HomeView";
 import { LessonView } from "./views/LessonView";
@@ -11,7 +11,6 @@ import { DrillView } from "./views/DrillView";
 import { GotchasView } from "./views/GotchasView";
 import { TimedView } from "./views/TimedView";
 import { ProgressView, computeStats } from "./views/ProgressView";
-import { toSession } from "./timed";
 import { dueReviews } from "./review";
 import { ReviewView } from "./views/ReviewView";
 import type { TimedRun } from "./types";
@@ -80,14 +79,8 @@ export default function App() {
     }));
   }, []);
 
-  const addSession = useCallback((run: TimedRun) => {
-    const session = toSession(run);
-    setProgress((p) => ({
-      ...p,
-      // Recording the same session twice — a double-clicked button — must not
-      // duplicate the history row.
-      sessions: [...p.sessions.filter((s) => s.id !== session.id), session],
-    }));
+  const recordSession = useCallback((run: TimedRun) => {
+    setProgress((p) => recordTimedRun(p, run));
   }, []);
 
   const setLessonRead = useCallback((id: string, v: boolean) => {
@@ -154,8 +147,7 @@ export default function App() {
           {route.view === "timed" && (
             <TimedView
               progress={progress}
-              commitDrill={updateDrill}
-              addSession={addSession}
+              recordSession={recordSession}
             />
           )}
 

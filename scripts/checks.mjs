@@ -276,6 +276,14 @@ export async function run(cdpBase) {
   await sleep(150);
   check("starting a session is offered", (await click("Start")) === true);
   await sleep(400);
+  await evalJs(`(() => {
+    const run = JSON.parse(localStorage.getItem("bug-finder:timed:v1"));
+    run.drillIds = [1, 2, 8];
+    localStorage.setItem("bug-finder:timed:v1", JSON.stringify(run));
+  })()`);
+  await send("Page.reload");
+  await sleep(1200);
+  await evalJs(`window.confirm = () => true`);
 
   check(
     "the clock is running and the position is shown",
@@ -473,6 +481,10 @@ export async function run(cdpBase) {
     })()`)) === true);
   check("due count is visible on the landing page",
     (await evalJs(`document.querySelector('.bar a[href="#/review"]')?.textContent ?? ""`)).includes("2 due"));
+  check("unreviewed drill counts stay hidden in the index",
+    (await evalJs(`(() => { const row = document.querySelector('.drill-table tr[data-done="0"]');
+      return row?.querySelectorAll('td')[4]?.textContent.trim() === '—'; })()`)) === true &&
+    !(await evalJs(`document.body.textContent`)).includes('Every drill has between two and six'));
 
   await evalJs(`location.hash = "#/review"`);
   await sleep(300);
@@ -526,6 +538,33 @@ export async function run(cdpBase) {
   await sleep(300);
   check("due set recomputes from stored attempts after reload",
     (await evalJs(`document.body.textContent`)).includes("1 due now"));
+
+  await evalJs(`(() => {
+    localStorage.setItem('bug-finder:progress:v1', JSON.stringify({ version: 3, drills: {
+      8: { note: 'Original reviewed answer with a finding', revealed: true,
+        caught: {0: true}, hintLevel: 0, verdict: 'request-changes', falsePositives: 2,
+        revealedAt: Date.now() - 86400000 }
+    }, reviews: {}, lessonsRead: {}, sessions: [] }));
+    localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
+      startedAt: Date.now() - 10000, secondsPerDrill: 60, drillIds: [8], at: 1,
+      drillStartedAt: Date.now(), notes: {8: 'Short timed note'}, spent: {8: 10},
+      phase: 'debrief', caught: {8: [1]}
+    }));
+    location.hash = '#/timed';
+  })()`);
+  await send('Page.reload');
+  await sleep(900);
+  await click('Record this session');
+  await sleep(200);
+  await send('Page.reload');
+  await sleep(900);
+  check('timed repeat preserves the assessed original after reload',
+    (await evalJs(`(() => { const p = JSON.parse(localStorage.getItem('bug-finder:progress:v1'));
+      return p.drills[8].caught[0] === true && p.drills[8].verdict === 'request-changes' &&
+        p.drills[8].falsePositives === 2 && p.reviews[8]?.length === 1 &&
+        p.reviews[8][0].caught[1] === true && p.reviews[8][0].source === 'timed' &&
+        p.reviews[8][0].verdict === undefined && p.reviews[8][0].falsePositives === undefined;
+    })()`)) === true);
 
   /* --------------------- clean and proportionate reviews ------------------ */
 

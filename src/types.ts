@@ -150,6 +150,8 @@ export interface ReviewAttempt {
   caught: Record<number, boolean>;
   /** The answer has been shown, but scoring may still be in progress. */
   scored: boolean;
+  /** Timed attempts may have been submitted when the clock expired. */
+  source?: "timed";
   verdict?: Verdict;
   falsePositives?: number;
 }
