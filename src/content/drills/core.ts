@@ -44,7 +44,7 @@ export const DRILLS_CORE: Drill[] = [
     code: t(s01),
     hintRegion:
       "Look at what happens for the values of `page` a real API caller would send.",
-    hintFamily: "Two families: Contract, and Boundaries.",
+    hintFamily: "Two families: Contract and Boundaries.",
     defects: [
       {
         family: "contract",
@@ -52,7 +52,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "The docstring says 'page number', which by convention is 1-indexed, but the arithmetic is 0-indexed. Called with page=1 the function silently skips the first 20 items. Nothing raises; users just never see the first page.",
+          "The docstring does not define whether page is zero- or one-based. The implementation is zero-based: page=0 returns the first page, while page=1 returns the second. A caller using one-based page numbers skips the first 20 items. State and enforce one convention.",
         fix: "Pick a convention, state it in the docstring, and subtract 1 if 1-indexed.",
       },
       {
@@ -61,17 +61,8 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "page=-1 produces start=-20, and Python slicing accepts negative indices. Instead of an error the caller gets the last page of results. A malformed or hostile request returns plausible data rather than a 400.",
+          "page=-2 produces start=-40 and end=-20; Python interprets these as offsets from the end, so a request intended to be invalid returns an earlier slice of the collection. The caller gets plausible but unrelated results instead of a 400.",
         fix: "Validate page >= 1 (or >= 0) and per_page > 0 before slicing.",
-      },
-      {
-        family: "failure",
-        title: "Out-of-range page is indistinguishable from an empty result",
-        signal: "silent",
-        severity: "minor",
-        body:
-          "A page past the end returns [], which the caller cannot tell apart from a legitimately empty result set. This matters for pagination UIs deciding whether to show 'no results' or 'end of list'.",
-        fix: "Return total count alongside the slice, or raise on out-of-range.",
       },
     ],
   },
@@ -83,14 +74,14 @@ export const DRILLS_CORE: Drill[] = [
     title: "Median response time",
     shape: "function",
     code: t(s02),
-    hintRegion: "Line 2 contains two separate defects.",
+    hintRegion: "Follow the sort operation through with even and odd input.",
     hintFamily: "Silent coercion, Shared state, Boundaries.",
     defects: [
       {
         family: "coercion",
         title: "Default sort is lexicographic",
         signal: "silent",
-        severity: "blocker",
+        severity: "major",
         body:
           "Array.prototype.sort() with no comparator converts elements to strings. [10, 9, 100] sorts to [10, 100, 9], so the median of a latency array is wrong whenever values differ in digit count — which for response times is always. Returns a plausible number, never throws.",
         fix: "times.sort((a, b) => a - b)",
@@ -123,8 +114,8 @@ export const DRILLS_CORE: Drill[] = [
     title: "Cache eviction",
     shape: "function",
     code: t(s03),
-    hintRegion: "This function passes any test where nothing happens to be stale.",
-    hintFamily: "Shared state, plus a Contract issue.",
+    hintRegion: "This function passes tests where no entry is stale.",
+    hintFamily: "Shared state and Boundaries.",
     defects: [
       {
         family: "state",
@@ -134,24 +125,6 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "del cache[key] inside `for ... in cache.items()` raises RuntimeError: dictionary changed size during iteration. The reason this survives review is that it only fires when something is actually stale — a unit test with fresh entries passes cleanly, and it blows up in production the first time the TTL elapses.",
         fix: "Iterate over a snapshot: for key, entry in list(cache.items())",
-      },
-      {
-        family: "contract",
-        title: "Mutates in place but also returns",
-        signal: "silent",
-        severity: "minor",
-        body:
-          "Returning the same object it mutated implies to a reader that the input is left alone. Callers will write `cache = evict_stale(cache, ...)` and assume the original is intact. Pick one: mutate and return None, or copy and return the copy.",
-        fix: "Return None, or build and return a new dict.",
-      },
-      {
-        family: "boundary",
-        title: "Strict inequality at the TTL boundary",
-        signal: "silent",
-        severity: "nit",
-        body:
-          "An entry exactly ttl seconds old is retained. Whether that's right depends on whether the TTL is inclusive, and the docstring doesn't say. Minor, but flagging undocumented boundary semantics is exactly what these rubrics reward.",
-        fix: "Document the intent; use >= if TTL is meant to be exclusive.",
       },
     ],
   },
@@ -165,7 +138,7 @@ export const DRILLS_CORE: Drill[] = [
     code: t(s04),
     hintRegion:
       "Four words of code, three problems. Think about what utcnow() actually returns.",
-    hintFamily: "Time & concurrency.",
+    hintFamily: "Time & concurrency, Contract, Failure surface.",
     defects: [
       {
         family: "time",
@@ -175,15 +148,6 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "datetime.utcnow() returns a naive datetime — no tzinfo — despite representing UTC. If expires_at came from a database driver that returns timezone-aware datetimes, this raises TypeError: can't compare offset-naive and offset-aware datetimes. If expires_at is naive but was stored in local time, the comparison succeeds and is wrong by the UTC offset. That second case is the dangerous one: tokens expire hours early or late with no error.",
         fix: "datetime.now(timezone.utc) > token.expires_at, with expires_at guaranteed aware.",
-      },
-      {
-        family: "contract",
-        title: "utcnow() is deprecated",
-        signal: "loud",
-        severity: "minor",
-        body:
-          "As of Python 3.12, datetime.utcnow() emits a DeprecationWarning precisely because it returns a naive object that people treat as aware. Its presence in new code is a signal the author copied an older pattern without checking.",
-        fix: "Use datetime.now(timezone.utc).",
       },
       {
         family: "failure",
@@ -205,7 +169,7 @@ export const DRILLS_CORE: Drill[] = [
     shape: "function",
     code: t(s05),
     hintRegion: "Consider what state the system is in if the 4th of 50 upserts rejects.",
-    hintFamily: "Time & concurrency, Failure surface.",
+    hintFamily: "Time & concurrency, Failure surface, Boundaries.",
     defects: [
       {
         family: "failure",
@@ -255,7 +219,7 @@ export const DRILLS_CORE: Drill[] = [
     code: t(s06),
     hintRegion:
       "Ask what the LEFT JOIN was written to accomplish, then whether it still does it.",
-    hintFamily: "Contract.",
+    hintFamily: "Contract and Silent coercion.",
     defects: [
       {
         family: "contract",
@@ -286,7 +250,7 @@ export const DRILLS_CORE: Drill[] = [
     shape: "function",
     code: t(s07),
     hintRegion: "Imagine two requests arriving 3ms apart.",
-    hintFamily: "Time & concurrency, Boundaries.",
+    hintFamily: "Time & concurrency, Boundaries, Failure surface.",
     defects: [
       {
         family: "time",
@@ -346,15 +310,6 @@ export const DRILLS_CORE: Drill[] = [
           "An empty input also returns 0.0, indistinguishable from a real maximum of zero. Rust's type system gives you the right tool here and the signature declines to use it.",
         fix: "Return Option<f64> and yield None for an empty slice.",
       },
-      {
-        family: "coercion",
-        title: "NaN is silently skipped",
-        signal: "silent",
-        severity: "minor",
-        body:
-          "Every comparison involving NaN is false, so `v > max` never fires for a NaN and it is dropped without comment. Whether that is correct depends on the caller, but a function that silently discards invalid input rather than reporting it is making a policy decision the signature doesn't disclose.",
-        fix: "Document the NaN policy, or use total_cmp and surface it.",
-      },
     ],
   },
   {
@@ -366,16 +321,16 @@ export const DRILLS_CORE: Drill[] = [
     shape: "function",
     code: t(s09),
     hintRegion:
-      "In Python's re module, `$` does not mean quite what you think it means.",
-    hintFamily: "Boundaries, Contract.",
+      "Check whether the match consumes every character in the input.",
+    hintFamily: "Boundaries, Contract, Failure surface.",
     defects: [
       {
         family: "boundary",
-        title: "`$` matches before a trailing newline",
+        title: "`$` accepts one trailing newline",
         signal: "silent",
-        severity: "blocker",
+        severity: "major",
         body:
-          'In Python, `$` matches at the end of the string *or* immediately before a newline at the end of the string. So "attacker@evil.com\\nvictim@bank.com" passes validation. Anywhere the validated value is later written into a header, a log line, or an SMTP envelope, that newline is an injection vector. This is a genuine security defect hiding behind a correct-looking regex.',
+          'In Python, `$` also matches immediately before a single final newline. So `is_valid_email("attacker@evil.com\\n")` returns True. It does not accept an embedded newline followed by another address, but accepting the trailing control character can still break callers that place the value into a line-oriented header or record.',
         fix: "Use re.fullmatch, or anchor with \\A and \\Z.",
       },
       {
@@ -386,24 +341,6 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "[a-z]{2,} is case-sensitive with no re.IGNORECASE flag, so USER@EXAMPLE.COM fails validation. Email domains are case-insensitive, so this rejects legitimate addresses — and it will look to support like an intermittent bug, because it depends on how the user typed it.",
         fix: "Add re.IGNORECASE, or normalise before matching.",
-      },
-      {
-        family: "coercion",
-        title: "\\w is Unicode-aware by default",
-        signal: "silent",
-        severity: "minor",
-        body:
-          "In Python 3, \\w matches Unicode word characters, including non-ASCII digits and letters. The pattern therefore accepts local parts the author almost certainly did not intend, while the rest of the pattern assumes ASCII. The intent is inconsistent with the implementation.",
-        fix: "Use re.ASCII if ASCII was intended, or commit to full internationalised addresses.",
-      },
-      {
-        family: "failure",
-        title: "Non-string input raises rather than returning False",
-        signal: "loud",
-        severity: "minor",
-        body:
-          "Passing None or an int raises TypeError from inside a function whose name promises a boolean. Validators are usually called on untrusted input, which is exactly where this will happen.",
-        fix: "Type-check and return False, or annotate and validate upstream.",
       },
     ],
   },
@@ -416,7 +353,7 @@ export const DRILLS_CORE: Drill[] = [
     shape: "function",
     code: t(s10),
     hintRegion:
-      "Try list(batch(range(10), 3)) on paper and write down what you actually get.",
+      "Track the object yielded to the caller across two iterations, then inspect the end of input.",
     hintFamily: "Shared state, Boundaries.",
     defects: [
       {
@@ -445,15 +382,6 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "size=0 means len(batch) == 0 is never true after an append, so nothing is ever yielded and the whole iterable is buffered in memory. A negative size behaves the same way. For a function designed to bound memory, this is an unbounded-memory failure.",
         fix: "Raise ValueError for size < 1.",
-      },
-      {
-        family: "contract",
-        title: "Local name shadows the function name",
-        signal: "silent",
-        severity: "nit",
-        body:
-          "The local variable `batch` shadows the function `batch` inside its own body. Harmless here since there is no recursion, but it blocks any future recursive or self-referential use and reads badly in a traceback.",
-        fix: "Rename the local to `current`.",
       },
     ],
   },
@@ -562,24 +490,6 @@ export const DRILLS_CORE: Drill[] = [
           "percent = 150 produces a discount larger than the price and the function returns a negative amount, which downstream becomes a refund. percent = -10 raises the price. Neither is rejected, and neither looks wrong in a log line.",
         fix: "Reject percent outside [0, 100], and clamp the result at zero.",
       },
-      {
-        family: "contract",
-        title: "The Javadoc describes behaviour the body does not have",
-        signal: "silent",
-        severity: "minor",
-        body:
-          "'round to the nearest cent' is exactly what the code fails to do. This is the characteristic AI pattern: the comment states the intent, the body states something else, and because the comment reads as documentation rather than as a claim to be checked, reviewers skim past it. Treat every docstring as an assertion to verify, never as evidence.",
-        fix: "Fix the arithmetic, then keep the Javadoc as the test oracle.",
-      },
-      {
-        family: "coercion",
-        title: "Math.round is asymmetric around zero",
-        signal: "silent",
-        severity: "nit",
-        body:
-          "Math.round breaks ties toward positive infinity: Math.round(2.5) is 3 but Math.round(-2.5) is -2. Anywhere refunds or credits are negative, the rounding is biased in one direction. Most finance code wants HALF_UP or HALF_EVEN on magnitude instead.",
-        fix: "BigDecimal.setScale(2, RoundingMode.HALF_UP).",
-      },
     ],
   },
   {
@@ -622,15 +532,6 @@ export const DRILLS_CORE: Drill[] = [
           "The Count() call inside a log statement is a full enumeration — potentially a full table scan. Reviewers read log lines as free. Worse, if the logger is configured above Information the string is never formatted, but large.Count() is still evaluated first, because it is an ordinary argument. The cost is paid whether or not anything is logged.",
         fix: "Compute the count once into a local, and log the local.",
       },
-      {
-        family: "boundary",
-        title: "A null `orders` fails at the caller, not here",
-        signal: "loud",
-        severity: "minor",
-        body:
-          "Where() on a null source throws ArgumentNullException — but only when enumerated. Here that happens at the Count() call, which is at least inside this method; had the log line not existed, the NullReferenceException would have surfaced in the caller's foreach with this method absent from the stack.",
-        fix: "ArgumentNullException.ThrowIfNull(orders) at the top.",
-      },
     ],
   },
   {
@@ -648,11 +549,11 @@ export const DRILLS_CORE: Drill[] = [
     defects: [
       {
         family: "boundary",
-        title: "An unset argument expands to nothing and deletes the filesystem root",
-        signal: "silent",
+        title: "An unset argument directs removal and copy commands at the filesystem root",
+        signal: "mixed",
         severity: "blocker",
         body:
-          "With no argument, BACKUP_DIR is the empty string, so `rm -rf $BACKUP_DIR/*` expands to `rm -rf /*`. Running as root from cron, that is the machine. Nothing in the script checks that the argument exists or that it points anywhere sane. This is the single most destructive shape in shell scripting and it is one missing crontab argument away at all times.",
+          "With no argument, BACKUP_DIR is empty, so rm receives /*. GNU rm refuses to remove root's contents by default, but the next command expands its destination to / and copies /var/data entries there. Run as root, that can overwrite system files. The script relies on rm's implementation safeguard and never checks that the argument names the intended backup directory.",
         fix: 'Set `set -euo pipefail` (so unset variables abort), quote the expansion, and validate: `[[ -d "$BACKUP_DIR" ]] || exit 1`.',
       },
       {
@@ -704,7 +605,7 @@ export const DRILLS_CORE: Drill[] = [
     brief: "Used for all outbound calls to a third-party pricing API.",
     hintRegion:
       "Count the attempts. Then ask which failures are worth retrying and which can never succeed.",
-    hintFamily: "Failure surface, Contract, Boundaries.",
+    hintFamily: "Failure surface, Contract, Boundaries, Time & concurrency.",
     defects: [
       {
         family: "failure",
@@ -1151,7 +1052,7 @@ export const DRILLS_CORE: Drill[] = [
     brief:
       "A CDN helper. Given a token and the paths the caller is allowed to reach, return the granted path or null.",
     hintRegion:
-      "Every comparison in this function is the loose one. Two of them are exploitable on their own.",
+      "Check how the runtime represents failure values in each comparison, and how the decoded path is constrained.",
     hintFamily: "Silent coercion twice, Boundaries, Failure surface.",
     defects: [
       {
@@ -1274,7 +1175,7 @@ export const DRILLS_CORE: Drill[] = [
     shape: "function",
     code: t(s24),
     brief: "Fans out one lookup per account and returns the combined records.",
-    hintRegion: "Line 19. What does the function return, and when?",
+    hintRegion: "Follow the promise created inside the array callback to the return statement.",
     hintFamily: "Time & concurrency, Contract, Failure surface, Silent coercion.",
     defects: [
       {
@@ -1283,7 +1184,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "Array.prototype.forEach ignores the promise the callback returns. Every fetchPlan is started, then the function falls straight through to the sort and returns an empty array before any of them resolve. failures is also empty, so the console.warn never fires and the function reports total success with zero results. Later, the pushes land on an array nobody is holding, and any rejection that escapes the try becomes an unhandled rejection that can take the process down minutes after the request finished.",
+          "Array.prototype.forEach ignores the promise the callback returns. The function falls through to the sort and returns an empty array before fetchPlan resolves. failures is also still empty, so the warning does not fire and the function reports total success with zero results. The later pushes go to an array nobody is holding; the catch does handle fetchPlan rejections, but the caller has already received the empty result.",
         fix: "await Promise.all(accounts.map(async (a) => { ... })) — or Promise.allSettled and inspect the results.",
       },
       {
@@ -1337,7 +1238,7 @@ export const DRILLS_CORE: Drill[] = [
     brief:
       "Runs fn over every id with at most `workers` in flight, and returns the results once all of them are done.",
     hintRegion:
-      "Two separate reasons this function never returns. One of them `go vet` will tell you about; nobody ran `go vet`.",
+      "Trace channel closure and ownership of the synchronization counter through the full call.",
     hintFamily: "Shared state, Time & concurrency, Contract, Failure surface.",
     defects: [
       {
