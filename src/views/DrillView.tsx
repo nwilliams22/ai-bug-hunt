@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { DRILLS, DRILL_BY_ID } from "../content/drills";
 import { PASSES, familyName } from "../content/passes";
-import { CodeBlock } from "../components/CodeBlock";
+import { DrillCode } from "../components/CodeBlock";
 import { href } from "../route";
 import type { Defect, DrillProgress } from "../types";
 
@@ -67,12 +67,7 @@ export function DrillView({ id, state, update }: Props) {
 
         {drill.brief && <p className="brief">{drill.brief}</p>}
 
-        <CodeBlock
-          code={drill.code}
-          lang={drill.lang}
-          diff={drill.shape === "diff"}
-          numbers
-        />
+        <DrillCode drill={drill} />
 
         {!state.revealed && (
           <details className="passes">

@@ -62,6 +62,7 @@ export interface Drill {
   /** "function" = review a whole unit. "diff" = review a change, the real job shape. */
   shape: "function" | "diff";
   code: string;
+  files?: { path: string; code: string }[];
   /** One-line framing shown above the code, as a review ticket would. */
   brief?: string;
   hintRegion: string;

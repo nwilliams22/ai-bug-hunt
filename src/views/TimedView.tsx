@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DRILL_BY_ID } from "../content/drills";
 import { familyName } from "../content/passes";
-import { CodeBlock } from "../components/CodeBlock";
+import { DrillCode } from "../components/CodeBlock";
 import { href } from "../route";
 import { drillState } from "../storage";
 import {
@@ -319,7 +319,7 @@ function Running({
 
       {drill.brief && <p className="brief">{drill.brief}</p>}
 
-      <CodeBlock code={drill.code} lang={drill.lang} diff={drill.shape === "diff"} numbers />
+      <DrillCode drill={drill} />
 
       <p className="label">Your review</p>
       <textarea

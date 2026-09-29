@@ -21,7 +21,7 @@ import "prismjs/components/prism-markup-templating";
 import "prismjs/components/prism-php";
 import "prismjs/components/prism-bash";
 
-import type { Lang } from "../types";
+import type { Drill, Lang } from "../types";
 
 const PRISM_LANG: Record<string, string> = {
   Python: "python",
@@ -38,6 +38,12 @@ const PRISM_LANG: Record<string, string> = {
   Ruby: "ruby",
   PHP: "php",
   Bash: "bash",
+  py: "python",
+  rs: "rust",
+  tsx: "tsx",
+  c: "c",
+  h: "c",
+  hpp: "cpp",
   python: "python",
   js: "javascript",
   javascript: "javascript",
@@ -129,5 +135,32 @@ export function CodeBlock({ code, lang, diff = false, numbers = false }: Props) 
         ))}
       </code>
     </pre>
+  );
+}
+
+/** Keep the complete file inventory visible; unchanged context is review material too. */
+export function DrillCode({ drill }: { drill: Drill }) {
+  if (!drill.files?.length) {
+    return <CodeBlock code={drill.code} lang={drill.lang} diff={drill.shape === "diff"} numbers />;
+  }
+  return (
+    <div className="drill-files">
+      <p className="label">Files in this review</p>
+      <ul aria-label="Review files">
+        {drill.files.map((file) => <li key={file.path}><code>{file.path}</code></li>)}
+      </ul>
+      {drill.files.map((file) => {
+        const extension = file.path.split(".").pop()?.toLowerCase();
+        // A diff file names its underlying extension: handler.ts.diff.
+        const diff = extension === "diff";
+        const lang = diff ? file.path.split(".").at(-2) : extension;
+        return (
+          <section className="drill-file" key={file.path} aria-label={file.path}>
+            <h3>{file.path}</h3>
+            <CodeBlock code={file.code} lang={lang} diff={diff} numbers />
+          </section>
+        );
+      })}
+    </div>
   );
 }
