@@ -1,39 +1,39 @@
-import type { Drill } from "../types";
+import type { Drill } from "../../types";
 
-import s01 from "./samples/01-paginate.py?raw";
-import s02 from "./samples/02-median.js?raw";
-import s03 from "./samples/03-evict.py?raw";
-import s04 from "./samples/04-expiry.py?raw";
-import s05 from "./samples/05-sync.ts?raw";
-import s06 from "./samples/06-orders.sql?raw";
-import s07 from "./samples/07-seat.js?raw";
-import s08 from "./samples/08-max.rs?raw";
-import s09 from "./samples/09-email.py?raw";
-import s10 from "./samples/10-batch.py?raw";
-import s11 from "./samples/11-fetchall.go?raw";
-import s12 from "./samples/12-discount.java?raw";
-import s13 from "./samples/13-largeorders.cs?raw";
-import s14 from "./samples/14-backup.sh?raw";
-import s15 from "./samples/15-retry.py?raw";
-import s16 from "./samples/16-shipping.py?raw";
-import s17 from "./samples/17-getuser.diff?raw";
-import s18 from "./samples/18-merge.diff?raw";
-import s19 from "./samples/19-search.jsx?raw";
-import s20 from "./samples/20-window.cpp?raw";
-import s21 from "./samples/21-coupon.rb?raw";
-import s22 from "./samples/22-token.php?raw";
-import s23 from "./samples/23-config.kt?raw";
-import s24 from "./samples/24-enrich.ts?raw";
-import s25 from "./samples/25-pool.go?raw";
-import s26 from "./samples/26-revenue.diff?raw";
-import s27 from "./samples/27-poll.jsx?raw";
-import s28 from "./samples/28-pricing.diff?raw";
-import s29 from "./samples/29-report.java?raw";
-import s30 from "./samples/30-uploader.cs?raw";
+import s01 from "../samples/01-paginate.py?raw";
+import s02 from "../samples/02-median.js?raw";
+import s03 from "../samples/03-evict.py?raw";
+import s04 from "../samples/04-expiry.py?raw";
+import s05 from "../samples/05-sync.ts?raw";
+import s06 from "../samples/06-orders.sql?raw";
+import s07 from "../samples/07-seat.js?raw";
+import s08 from "../samples/08-max.rs?raw";
+import s09 from "../samples/09-email.py?raw";
+import s10 from "../samples/10-batch.py?raw";
+import s11 from "../samples/11-fetchall.go?raw";
+import s12 from "../samples/12-discount.java?raw";
+import s13 from "../samples/13-largeorders.cs?raw";
+import s14 from "../samples/14-backup.sh?raw";
+import s15 from "../samples/15-retry.py?raw";
+import s16 from "../samples/16-shipping.py?raw";
+import s17 from "../samples/17-getuser.diff?raw";
+import s18 from "../samples/18-merge.diff?raw";
+import s19 from "../samples/19-search.jsx?raw";
+import s20 from "../samples/20-window.cpp?raw";
+import s21 from "../samples/21-coupon.rb?raw";
+import s22 from "../samples/22-token.php?raw";
+import s23 from "../samples/23-config.kt?raw";
+import s24 from "../samples/24-enrich.ts?raw";
+import s25 from "../samples/25-pool.go?raw";
+import s26 from "../samples/26-revenue.diff?raw";
+import s27 from "../samples/27-poll.jsx?raw";
+import s28 from "../samples/28-pricing.diff?raw";
+import s29 from "../samples/29-report.java?raw";
+import s30 from "../samples/30-uploader.cs?raw";
 
 const t = (s: string) => s.replace(/\s+$/, "");
 
-export const DRILLS: Drill[] = [
+export const DRILLS_CORE: Drill[] = [
   {
     id: 1,
     slug: "pagination-helper",
@@ -1702,5 +1702,3 @@ export const DRILLS: Drill[] = [
     ],
   },
 ];
-
-export const DRILL_BY_ID = new Map(DRILLS.map((d) => [d.id, d]));
