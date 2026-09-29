@@ -17,6 +17,10 @@ export type Lang =
   | "Go"
   | "Java"
   | "C#"
+  | "C++"
+  | "Kotlin"
+  | "Ruby"
+  | "PHP"
   | "Bash";
 
 export type Level = "Warm-up" | "Standard" | "Hard";
@@ -110,8 +114,48 @@ export interface DrillProgress {
   revealedAt?: number;
 }
 
+/** One finished timed review, kept for the history on the progress page. */
+export interface TimedSession {
+  id: string;
+  startedAt: number;
+  finishedAt: number;
+  secondsPerDrill: number;
+  /** Drill ids in the order they were presented. */
+  drillIds: number[];
+  /** Seconds actually spent on each drill. */
+  spent: Record<number, number>;
+  /** Defect indices ticked at debrief, per drill. */
+  caught: Record<number, number[]>;
+}
+
 export interface Progress {
-  version: 1;
+  version: 2;
   drills: Record<number, DrillProgress>;
   lessonsRead: Record<string, boolean>;
+  sessions: TimedSession[];
+}
+
+/* ---------- the timed run in flight ---------- */
+
+/**
+ * Held under its own storage key rather than inside Progress, so a run that is
+ * abandoned halfway cannot corrupt the course history, and so an exported
+ * progress file never carries a half-finished session.
+ *
+ * Note what is *not* stored: the seconds remaining. Only `drillStartedAt` is,
+ * and the countdown is derived from it — otherwise the clock would write to
+ * local storage once a second for the length of the session.
+ */
+export interface TimedRun {
+  startedAt: number;
+  secondsPerDrill: number;
+  drillIds: number[];
+  /** Index into drillIds. */
+  at: number;
+  /** ms epoch at which the current drill was presented. */
+  drillStartedAt: number;
+  notes: Record<number, string>;
+  spent: Record<number, number>;
+  phase: "running" | "debrief";
+  caught: Record<number, number[]>;
 }

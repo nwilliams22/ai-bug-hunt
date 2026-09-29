@@ -2,7 +2,8 @@ import { useRef } from "react";
 import { DRILLS } from "../content/drills";
 import { LESSONS } from "../content/lessons";
 import { PASSES } from "../content/passes";
-import { drillState, exportFile, normalise } from "../storage";
+import { drillState, empty, exportFile, normalise } from "../storage";
+import { mmss, scoreRun } from "../timed";
 import { href } from "../route";
 import type { FamilyId, Progress } from "../types";
 
@@ -153,6 +154,49 @@ export function ProgressView({ progress, stats, replace }: Props) {
         </>
       )}
 
+      <h3 className="sec-h">Timed sessions</h3>
+      {progress.sessions.length === 0 ? (
+        <p className="note">
+          None yet. An untimed drill measures whether you <em>can</em> find a defect; a{" "}
+          <a href={href({ view: "timed" })}>timed session</a> measures whether you find it
+          at the pace the work is paid at, which is the thing being hired for.
+        </p>
+      ) : (
+        <>
+          <ul className="plain-list">
+            {[...progress.sessions]
+              .reverse()
+              .slice(0, 8)
+              .map((s) => {
+                const sc = scoreRun({
+                  ...s,
+                  at: s.drillIds.length,
+                  drillStartedAt: s.startedAt,
+                  notes: {},
+                  phase: "debrief",
+                });
+                return (
+                  <li key={s.id}>
+                    {new Date(s.startedAt).toLocaleDateString()} —{" "}
+                    {s.drillIds.length} samples at {mmss(s.secondsPerDrill)},{" "}
+                    <b>{sc.pct}%</b>{" "}
+                    <span className="practice-lang">
+                      {sc.blockersTotal - sc.blockersCaught} of {sc.blockersTotal} blockers
+                      missed
+                      {sc.timedOut > 0 ? `, ${sc.timedOut} ran out of clock` : ""}
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
+          <p className="note">
+            <a href={href({ view: "timed" })}>Run another session</a>. If the untimed
+            percentage is high and the timed one is not, the gap is pacing rather than
+            knowledge, and the fix is to write each finding the moment you see it.
+          </p>
+        </>
+      )}
+
       {unreviewed.length > 0 && (
         <>
           <h3 className="sec-h">Not yet reviewed</h3>
@@ -198,7 +242,7 @@ export function ProgressView({ progress, stats, replace }: Props) {
           className="btn btn-danger"
           onClick={() => {
             if (confirm("Erase all notes, reveals and scores? This cannot be undone.")) {
-              replace({ version: 1, drills: {}, lessonsRead: {} });
+              replace(empty());
             }
           }}
         >

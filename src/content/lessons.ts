@@ -85,7 +85,7 @@ and is not*. Reading a defect and thinking "yes, obviously" builds nothing. Writ
     moduleId: "orientation",
     title: "How AI-generated code fails differently",
     blurb: "Ten failure modes that follow from how the code is produced.",
-    practice: [12, 16, 17],
+    practice: [12, 16, 17, 22, 28],
     body: `
 Human code and generated code do not fail the same way, because they are not produced
 the same way. A human writes a bug because they held the wrong model of the problem.
@@ -238,7 +238,7 @@ answer and move on; an unanswered question is itself a legitimate review comment
     moduleId: "method",
     title: "Pass 1 — Contract",
     blurb: "Does the name, signature and docstring match what the code does?",
-    practice: [1, 6, 12, 15],
+    practice: [1, 6, 12, 15, 21, 25, 26],
     body: `
 **The question:** if I only read the name, the signature and the docstring, what would I
 expect this to do? Now read the body. Do they agree?
@@ -294,7 +294,7 @@ what a construct was *for*, then checked whether it still does it.
     moduleId: "method",
     title: "Pass 2 — Boundaries",
     blurb: "Empty, one, zero, negative, duplicate, maximum.",
-    practice: [2, 8, 10, 14],
+    practice: [2, 8, 10, 14, 20, 23, 30],
     body: `
 **The question:** substitute each boundary value and trace what happens. Not "are the
 edge cases handled" — actually substitute.
@@ -349,7 +349,7 @@ time pressure when "read carefully" does not.
     moduleId: "method",
     title: "Pass 3 — Shared state",
     blurb: "Is anything mutated that the caller still holds a reference to?",
-    practice: [2, 3, 10, 11],
+    practice: [2, 3, 10, 11, 20, 27, 28],
     body: `
 **The question:** after this returns, which objects does the caller still hold that are
 not what they were?
@@ -404,7 +404,7 @@ you can name a concrete breakage. "The caller's array is reordered" is itself th
     moduleId: "method",
     title: "Pass 4 — Time & concurrency",
     blurb: "Two of these at once, and a clock you don't control.",
-    practice: [4, 5, 7, 11, 19],
+    practice: [4, 5, 7, 11, 19, 23, 24, 25, 29],
     body: `
 **The question:** imagine a second identical call starting three milliseconds after this
 one. Now interleave them line by line and find the pair of lines that must not be
@@ -477,7 +477,7 @@ result — and its absence is a finding on sight.
     moduleId: "method",
     title: "Pass 5 — Silent coercion",
     blurb: "Where does a type quietly become a different type?",
-    practice: [2, 6, 12, 17],
+    practice: [2, 6, 12, 17, 20, 21, 22, 29],
     body: `
 **The question:** for each expression, what is the static type of every subexpression,
 and where does the language convert one to another without telling anyone?
@@ -545,7 +545,7 @@ for truth — stop and write the types down. That is the whole pass.
     moduleId: "method",
     title: "Pass 6 — Failure surface",
     blurb: "When this goes wrong, does it fail loudly or quietly?",
-    practice: [7, 11, 14, 15, 19],
+    practice: [7, 11, 14, 15, 19, 22, 27, 30],
     body: `
 **The question:** enumerate every way this can fail. For each one, ask what the caller
 observes, and whether they can do anything about it.
@@ -612,7 +612,7 @@ of how unlikely the failure is.
     moduleId: "practice",
     title: "Reviewing a change, not a function",
     blurb: "The defect is often in the code that should exist and doesn't.",
-    practice: [17, 18],
+    practice: [17, 18, 26, 28],
     body: `
 Most of the paid work is diffs, and a diff is harder than a function, because a diff
 tells you where to look and *that is the problem*. Your attention is directed at the
@@ -757,7 +757,7 @@ knowledge and it hands the author a specific thing to answer.
     moduleId: "practice",
     title: "Severity and the verdict",
     blurb: "Approve, approve with comments, or request changes — and why it matters.",
-    practice: [16, 17],
+    practice: [16, 17, 22, 30],
     body: `
 The deliverable is usually not a list of findings. It is a *decision*, with the findings
 as evidence. A reviewer who files everything at the same urgency has told the reader
@@ -886,6 +886,97 @@ For the defect you found in the implementation, ask: *what test would have caugh
 and is it here?* Then write that test into the review comment. It costs you one line,
 it makes the finding undeniable, and it is the most directly useful thing you can hand
 the author.
+`,
+  },
+  /* ------------------------------------------------------------------ */
+  {
+    id: "under-the-clock",
+    moduleId: "practice",
+    title: "Reviewing under a clock",
+    blurb: "Pacing, triage, and the order to read a sample in when you have six minutes.",
+    practice: [24, 26],
+    body: `
+Everything up to here assumed you had as long as you wanted. The paid version does not
+work like that. A review queue pays per item, the items keep coming, and the difference
+between a rate that is worth doing and one that is not comes down to minutes per review.
+
+That changes the skill. It is no longer *can I find this defect*. It is **can I find it
+in six minutes, reliably, on the ninth one of the day.**
+
+## Two failure modes, and only one of them is about knowledge
+
+The first is not knowing what to look for. That is what the six passes and the gotcha
+reference are for, and it is the one that improves with study.
+
+The second is pacing, and it looks nothing like the first. The symptoms:
+
+- You read the whole sample twice before writing anything, run out of time, and submit
+  a finding you had spotted in the first thirty seconds.
+- You find one real defect, write three paragraphs about it, and never run the other
+  five passes.
+- You spend four minutes deciding whether something is a blocker or a major, which is a
+  decision worth about fifteen seconds.
+
+Every one of those produces a *low score with full knowledge*. The timed mode exists to
+separate them: if your untimed percentage is high and your timed percentage is not, you
+do not have a knowledge problem.
+
+## Write as you read, not after
+
+The single highest-leverage habit. An unwritten finding scores zero, and the cost of
+writing one line is about eight seconds.
+
+So: the moment you see something, write the line. Location, mechanism, failing input.
+Do not polish it, do not decide its severity, do not verify it. Move on. You can delete
+a wrong line at the end for free; you cannot recover a finding you forgot because you
+were holding it in your head while reading the next forty lines.
+
+## The order to read in
+
+With a clock running, do not read top to bottom. Read in this order:
+
+1. **The signature and the name.** Fifteen seconds. What does this claim to do? Note any
+   parameter whose name implies a convention — \`page\`, \`limit\`, \`timeout_ms\`, \`amount\`.
+2. **Every return statement.** Thirty seconds. What are all the things this can return,
+   and can the caller tell them apart? This is where the Failure pass pays off fastest,
+   because you can run it without understanding the body at all.
+3. **The arithmetic and the comparisons.** One minute. Division, accumulator seeds,
+   \`==\` where you expected \`===\`, a sort with no comparator, a float touching money.
+   These are the highest-density defects per second of reading.
+4. **What escapes.** One minute. Which arguments are mutated, which references outlive
+   the function, what is shared between calls.
+5. **Then read it top to bottom** with whatever time is left, looking for the passes you
+   have not run yet.
+
+That order is deliberately not the order the code is written in. It is sorted by defects
+found per second, and the first three steps need no understanding of the algorithm.
+
+## Triage: what to skip on purpose
+
+Under time pressure, skipping is a decision, not a failure. Skip:
+
+- **Style.** Naming, formatting, import order. Zero value to the person paying, and it
+  is the most tempting thing to write because it is the easiest to see.
+- **Severity precision.** Blocker versus major matters. Major versus minor rarely changes
+  what the author does. Guess and move on.
+- **Verifying a defect you are 80% sure of.** Write it with the uncertainty stated —
+  "if \`items\` can be empty here, this returns NaN" — and let the author resolve it.
+  A hedged real finding beats a confirmed one you ran out of time to write.
+
+Do not skip: running all six passes. A review that goes deep on one pass and never runs
+the other five is the characteristic shape of a rushed review, and it is exactly the
+shape that misses the blocker.
+
+## What the timed score means
+
+The headline number in the debrief is **blockers missed**, not percentage. A session
+where you caught 60% of defects and every blocker is a good session. One where you caught
+85% and missed two blockers is a bad one — in the real queue, that is two approvals that
+should have been rejections.
+
+**Ran out of clock** is the other number to watch. One or two out of five is normal and
+means the time limit is doing its job. More than half means you are reading before
+writing, and the fix is mechanical: write the line when you see the thing.
 `,
   },
 ];

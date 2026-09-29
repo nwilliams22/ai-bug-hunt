@@ -3,3 +3,7 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .vite/
+
+# Rust / Tauri build output. Cargo.lock is committed: this is a binary.
+src-tauri/target/
+src-tauri/gen/

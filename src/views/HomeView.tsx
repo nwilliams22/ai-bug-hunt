@@ -19,11 +19,12 @@ export function HomeView({ progress }: { progress: Progress }) {
           those places on purpose rather than by luck.
         </p>
         <p className="note">
-          Three parts. A <b>method</b>: six passes you run in a fixed order, so defects
+          Four parts. A <b>method</b>: six passes you run in a fixed order, so defects
           are found by construction rather than by inspiration. A set of{" "}
           <b>{DRILLS.length} drills</b> of plausible, confident, defective code, gated so
-          you must write your review before the answers unlock. And a{" "}
-          <b>reference</b> of {GOTCHAS.length} language-specific traps for the languages
+          you must write your review before the answers unlock. A{" "}
+          <b>timed mode</b>, because the paid version of this work has a clock on it. And
+          a <b>reference</b> of {GOTCHAS.length} language-specific traps for the languages
           you review rarely.
         </p>
 
@@ -38,6 +39,9 @@ export function HomeView({ progress }: { progress: Progress }) {
               Next drill: {nextDrill.title}
             </a>
           )}
+          <a className="btn btn-2" href={href({ view: "timed" })}>
+            Timed review
+          </a>
         </div>
       </div>
 

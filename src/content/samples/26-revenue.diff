@@ -1,0 +1,16 @@
+ -- Monthly revenue by account, including accounts with no orders yet.
+ SELECT
+     a.id,
+     a.name,
+     DATE_TRUNC('month', o.created_at) AS month,
+     COALESCE(SUM(o.amount_cents), 0) AS revenue_cents,
+-    COUNT(o.id) AS order_count
++    COUNT(*) AS order_count,
++    SUM(o.amount_cents) / COUNT(*) AS avg_order_cents
+ FROM accounts a
+ LEFT JOIN orders o ON o.account_id = a.id
+ WHERE a.deleted_at IS NULL
++  AND o.status <> 'cancelled'
++  AND o.created_at >= NOW() - INTERVAL '12 months'
+ GROUP BY a.id, a.name, DATE_TRUNC('month', o.created_at)
+ ORDER BY month DESC, revenue_cents DESC;

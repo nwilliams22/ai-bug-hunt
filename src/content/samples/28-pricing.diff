@@ -1,0 +1,27 @@
+ from functools import lru_cache
+
+
+ class PricingEngine:
+     def __init__(self, rates):
+         self.rates = rates
+
+-    def quote(self, sku, region, qty):
+-        rate = self.rates[region]
+-        return self._apply(sku, rate, qty)
++    @lru_cache(maxsize=1024)
++    def quote(self, sku, region, qty, options=None):
++        rate = self.rates[region]
++        return self._apply(sku, rate, qty, options or {})
+
+-    def _apply(self, sku, rate, qty):
+-        base = rate.base_cents * qty
+-        return base - self._discount(base, qty)
++    def _apply(self, sku, rate, qty, options):
++        base = rate.base_cents * qty
++        if options.get("rush"):
++            base = int(base * 1.15)
++        return base - self._discount(base, qty)
++
++    def reload(self, rates):
++        """Swap in a fresh rate card, e.g. after a pricing update."""
++        self.rates = rates

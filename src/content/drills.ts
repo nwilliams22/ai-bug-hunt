@@ -19,6 +19,17 @@ import s16 from "./samples/16-shipping.py?raw";
 import s17 from "./samples/17-getuser.diff?raw";
 import s18 from "./samples/18-merge.diff?raw";
 import s19 from "./samples/19-search.jsx?raw";
+import s20 from "./samples/20-window.cpp?raw";
+import s21 from "./samples/21-coupon.rb?raw";
+import s22 from "./samples/22-token.php?raw";
+import s23 from "./samples/23-config.kt?raw";
+import s24 from "./samples/24-enrich.ts?raw";
+import s25 from "./samples/25-pool.go?raw";
+import s26 from "./samples/26-revenue.diff?raw";
+import s27 from "./samples/27-poll.jsx?raw";
+import s28 from "./samples/28-pricing.diff?raw";
+import s29 from "./samples/29-report.java?raw";
+import s30 from "./samples/30-uploader.cs?raw";
 
 const t = (s: string) => s.replace(/\s+$/, "");
 
@@ -991,6 +1002,702 @@ export const DRILLS: Drill[] = [
         body:
           "If any result lacks an id, key is undefined; if two share one, React silently reuses the wrong DOM node and stale text persists across renders. Search backends that merge several indexes produce duplicate ids more often than you would expect.",
         fix: "Verify uniqueness at the boundary, or fall back to a composite key.",
+      },
+    ],
+  },
+  {
+    id: 20,
+    slug: "best-window",
+    lang: "C++",
+    level: "Hard",
+    title: "Best sample window",
+    shape: "function",
+    code: t(s20),
+    brief:
+      "Sensor analytics. Returns the highest-scoring run of consecutive readings as a view into the caller's data, so nothing is copied.",
+    hintRegion:
+      "One defect is in the third argument of a call. One is about who owns the memory the returned value points at.",
+    hintFamily: "Silent coercion, Boundaries, Shared state, Failure surface.",
+    defects: [
+      {
+        family: "coercion",
+        title: "accumulate's init argument fixes the accumulator type to int",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "std::accumulate deduces its accumulator from the *initial value*, not from the iterator's value type. Passing the literal 0 makes it an int, so every double is truncated on each addition: a window of [0.9, 0.9, 0.9] sums to 0, not 2.7. The result compiles without a warning under -Wall and returns a plausible number. This is the single most common numeric defect in generated C++ and it survives any test whose values happen to be whole.",
+        fix: "std::accumulate(w.begin(), w.end(), 0.0) — or 0.0L, or std::reduce with an explicit type.",
+      },
+      {
+        family: "state",
+        title: "The returned span points into a vector that is destroyed",
+        signal: "mixed",
+        severity: "blocker",
+        body:
+          "top_windows takes `readings` by value, so best_window views a local copy. Every Window in the returned vector holds a span into that copy's buffer, which is freed when top_windows returns — the caller reads freed memory. It is worse inside the loop: readings.erase() invalidates the buffer that the spans already pushed into `out` point at, so earlier passes dangle before the function has even finished. Both are undefined behaviour that usually 'works' in a debug build because the freed pages are still mapped and still hold the old bytes.",
+        fix:
+          "Return owning values (a std::vector<double> per window, or an index+width pair), or take the data by const reference and document that the caller must outlive the result.",
+      },
+      {
+        family: "boundary",
+        title: "best_sum starts at 0.0, so all-negative data never wins",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "`sum > best_sum` can never be true when every window sums below zero — temperature deltas, drawdowns, signed error terms. The function then returns the default-constructed Window: an empty span, mean 0.0, and an empty label. The caller has been handed a window that does not exist, and 0.0 is a believable mean.",
+        fix:
+          "Seed with the first window, or track `bool have_best` — never a value that is inside the domain of the data.",
+      },
+      {
+        family: "failure",
+        title: "'No window exists' is indistinguishable from a real answer",
+        signal: "silent",
+        severity: "major",
+        body:
+          "When width exceeds data.size() the loop body never runs and the same default Window comes back. There is no error, no optional, no exception: an empty span and a zero mean are the encoding for both 'the best window has mean zero' and 'you asked for something impossible'.",
+        fix: "std::optional<Window>, or throw on width > data.size().",
+      },
+      {
+        family: "coercion",
+        title: "int width promotes to size_t in the loop condition",
+        signal: "silent",
+        severity: "major",
+        body:
+          "In `i + width <= data.size()`, i is size_t, so width is converted to size_t before the addition. A negative width becomes an enormous positive value, the condition is false immediately, and the function silently returns the default Window instead of rejecting the argument. Because both operands end up unsigned, -Wsign-compare does not fire. width == 0 is also accepted and gives `sum / width` — a division by zero.",
+        fix:
+          "Validate width > 0 up front and take it as size_t (or compare as `width <= data.size() && i <= data.size() - width`).",
+      },
+    ],
+  },
+  {
+    id: 21,
+    slug: "apply-coupon",
+    lang: "Ruby",
+    level: "Hard",
+    title: "Apply a coupon",
+    shape: "function",
+    code: t(s21),
+    brief: "Checkout. Applies a promo code to a cart and returns the new total in cents.",
+    hintRegion:
+      "Read line 17 out loud and then say what it assigns. Then ask what happens when `code` is not in the hash.",
+    hintFamily: "Contract, Silent coercion, Boundaries, Shared state, Failure surface.",
+    defects: [
+      {
+        family: "failure",
+        title: "An unknown coupon silently becomes a 0% discount",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "`DISCOUNTS[code] || 0` turns a typo, an expired code and a hostile guess into the same thing as a valid code worth nothing. The method returns the full subtotal and appends the bogus code to @cart[:applied], so the customer is told their code was accepted and charged as though it wasn't. Support cannot reproduce it because the code 'works'.",
+        fix:
+          "percent = DISCOUNTS.fetch(code) { return Result.invalid_code(code) } — make the unknown case a distinct outcome, not a number.",
+      },
+      {
+        family: "contract",
+        title: "`or` binds looser than `=`",
+        signal: "silent",
+        severity: "major",
+        body:
+          "`stackable = params[:stackable] == \"true\" or params[:override]` parses as `(stackable = (params[:stackable] == \"true\")) or params[:override]`. The override flag is evaluated, its value discarded, and `stackable` is never influenced by it. Ruby warns about this only under `-w`, and the line reads exactly like the thing it does not do. Generated Ruby reaches for the English keywords `and`/`or` because prose-like code is well represented in training data.",
+        fix: "Use || in expressions. Reserve and/or for control flow (`do_thing or raise`).",
+      },
+      {
+        family: "boundary",
+        title: "The 100% cap only applies on the stackable path",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "`percent = 100 if stackable && percent > 100` guards the wrong case. With HALF plus a bonus of 60, percent is 110 and stackable is false, so discount exceeds subtotal and total goes negative — a coupon that pays the customer. There is no floor at 0 either. Note that the previous defect makes `stackable` almost always false, so the cap is effectively dead code.",
+        fix: "Clamp unconditionally: percent = percent.clamp(0, 100).",
+      },
+      {
+        family: "coercion",
+        title: "String#to_i never fails",
+        signal: "silent",
+        severity: "major",
+        body:
+          "nil.to_i is 0, \"abc\".to_i is 0, \"50%\".to_i is 50, \" 7\".to_i is 7 and \"1e9\".to_i is 1. So a malformed bonus is silently ignored, a percentage written with its sign grants the discount anyway, and a value in scientific notation is quietly misread. Nothing raises, which is exactly why the parameter is never validated.",
+        fix: "Integer(params[:bonus], exception: false) and reject nil explicitly.",
+      },
+      {
+        family: "state",
+        title: "The caller's cart is mutated, and applying twice is not idempotent",
+        signal: "silent",
+        severity: "major",
+        body:
+          "@cart is the hash the caller still holds. Every call writes :total and appends to :applied — including the unknown-code path. A retried request (a double-clicked button, a Sidekiq retry after a timeout) appends the same code a second time, so the audit trail says the coupon was applied twice while the total says it was applied once. Reconciliation then disagrees with the charge and nobody can tell which is right.",
+        fix:
+          "Return a new total and let the caller commit it; guard with `return if @cart[:applied].include?(code)`.",
+      },
+      {
+        family: "coercion",
+        title: "Integer division picks a rounding rule nobody chose",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "`subtotal * percent / 100` truncates toward zero, so 10% of 1999 cents is 199, not 200. It is consistently in the merchant's favour and consistently disagrees with whatever the finance spec says at every amount that is not a multiple of 10. One cent, on every order, is an accounting discrepancy rather than a rounding detail.",
+        fix: "Decide and write it down: (subtotal * percent).fdiv(100).round, or use BigDecimal.",
+      },
+    ],
+  },
+  {
+    id: 22,
+    slug: "verify-download",
+    lang: "PHP",
+    level: "Hard",
+    title: "Verify a signed download link",
+    shape: "function",
+    code: t(s22),
+    brief:
+      "A CDN helper. Given a token and the paths the caller is allowed to reach, return the granted path or null.",
+    hintRegion:
+      "Every comparison in this function is the loose one. Two of them are exploitable on their own.",
+    hintFamily: "Silent coercion twice, Boundaries, Failure surface.",
+    defects: [
+      {
+        family: "coercion",
+        title: "strpos(...) == 0 is true whenever the prefix is absent",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "strpos returns false when the needle is not found. `false == 0` is true in PHP — comparing a bool against anything converts the other operand to bool, and 0 is falsy. So the allowlist loop returns the path on its *first* iteration for every path that does not contain the prefix, which is the exact opposite of what it is for. The check passes in a test where the path does start with the prefix, because then strpos really is 0.",
+        fix: "str_starts_with($path, $prefix) — or at minimum ===, never ==.",
+      },
+      {
+        family: "coercion",
+        title: "Loose comparison of a hash lets a numeric-string signature through",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "PHP 8 no longer juggles a non-numeric string against a number, but it still compares *two numeric strings* numerically. md5 output that looks like scientific notation — \"0e462097431906509019562988736854\" — is a numeric string, so any two such hashes compare equal. Roughly 1 in 340 million inputs hashes to that shape, and attackers precompute them. Separately, == and === are both variable-time, so the comparison leaks the signature byte by byte.",
+        fix: "hash_equals($expected, $signature), and hash_hmac('sha256', ...) instead of md5.",
+      },
+      {
+        family: "boundary",
+        title: "Nothing rejects path traversal",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "$path is urldecoded and then only prefix-checked, so \"uploads/../../etc/passwd\" satisfies an allowlist entry of \"uploads/\" and the function hands it back as an approved path. Decoding before validation is the same mistake one layer down: %2e%2e%2f arrives as ../ after urldecode, so any filter applied to the raw token is bypassed.",
+        fix:
+          "realpath() the result and assert it is still inside the allowed root, after decoding and before returning.",
+      },
+      {
+        family: "coercion",
+        title: "A non-numeric expiry compares as a string and never expires",
+        signal: "silent",
+        severity: "major",
+        body:
+          "$expires comes out of explode() as a string. When it is numeric, `$expires < time()` compares numerically and is fine. When it is not — \"never\", \"\", a truncated token — PHP 8 casts the int to a string and compares the two as strings: \"abc\" < \"1790000000\" is false, so the token is treated as unexpired. The token is still signed, so this is not directly exploitable, but it means a bug upstream that produces a malformed expiry yields links that never die.",
+        fix: "Require ctype_digit($expires) and compare (int) $expires.",
+      },
+      {
+        family: "failure",
+        title: "Four different rejections return the same null",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "Malformed, bad signature, expired and not-allowed are indistinguishable to the caller, so the access log records one outcome for a clock-skew problem and for a forged signature. The first is a support ticket and the second is an incident, and you cannot tell them apart after the fact.",
+        fix:
+          "Return a small result object, or throw distinct exceptions. Log the reason even if the HTTP response stays a flat 403.",
+      },
+    ],
+  },
+  {
+    id: 23,
+    slug: "config-loader",
+    lang: "Kotlin",
+    level: "Hard",
+    title: "Cached config loader",
+    shape: "function",
+    code: t(s23),
+    brief: "Reads a retry policy out of a `key = value` file and caches it by path.",
+    hintRegion:
+      "Start with the cache key and the parameter list. Then ask what `?: 3` actually defends against.",
+    hintFamily: "Shared state, Boundaries, Time & concurrency, Failure surface.",
+    defects: [
+      {
+        family: "state",
+        title: "The cache key omits `overrides`",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "The first caller's overrides are baked into the cached RetryPolicy and served to every later caller of the same path, whatever they pass. Worse, the first call in a process is usually the one with no overrides at all — from a health check or an eager initialiser — so in production the overrides are silently never applied, while in a test that calls load() once with overrides they always are.",
+        fix:
+          "Key on (path, overrides), or take overrides out of the cached function and apply them to the cached result.",
+      },
+      {
+        family: "boundary",
+        title: "Destructuring split(\"=\") breaks on both edges",
+        signal: "mixed",
+        severity: "major",
+        body:
+          "A blank line or a line with no `=` — a trailing newline is enough — gives a one-element list, and `val (k, v)` throws IndexOutOfBoundsException. A line whose value contains `=` (a base64 secret, a query string, a padded token) gives three elements and the third is silently dropped, so the value is truncated at the first `=`. One edge is loud, the other is silent, and the silent one corrupts a credential.",
+        fix: "line.split(\"=\", limit = 2) plus a filter for blank lines and an explicit error for malformed ones.",
+      },
+      {
+        family: "failure",
+        title: "`?: 3` looks like input validation and is not",
+        signal: "loud",
+        severity: "major",
+        body:
+          "The elvis operator only covers the *null* case — the key being absent. `\"three\".toInt()` throws NumberFormatException, which is not null, so the default never applies. The shape of the line advertises tolerance for bad input and delivers a stack trace whose message is `For input string: \"three\"` and which names neither the key nor the file.",
+        fix: "merged[\"attempts\"]?.toIntOrNull() ?: 3 — and if you want to reject bad input, say which key.",
+      },
+      {
+        family: "boundary",
+        title: "backoffMs / attempts divides by a caller-supplied value",
+        signal: "mixed",
+        severity: "blocker",
+        body:
+          "attempts = 0 is a reasonable thing to write in a config file to mean 'do not retry', and it throws ArithmeticException at load time. attempts greater than backoffMs floors to zero, so Duration.ZERO becomes the backoff and the retry loop spins as fast as the network allows — a self-inflicted denial of service against your own dependency. The arithmetic is also just wrong: dividing the configured backoff by the attempt count is not what a key named backoff_ms means.",
+        fix:
+          "Validate attempts >= 1, and use the configured value as the backoff rather than dividing it.",
+      },
+      {
+        family: "time",
+        title: "A process-wide HashMap mutated with no synchronisation",
+        signal: "silent",
+        severity: "major",
+        body:
+          "`object` is a singleton, and HashMap is not thread safe. Two threads calling load() concurrently both miss, both parse, and both put — the read-then-write is a TOCTOU, so the work is duplicated and one policy is discarded. A concurrent put during a resize can also lose unrelated entries or leave the map in a state that a later read never recovers from. None of this appears in a single-threaded test.",
+        fix: "ConcurrentHashMap with computeIfAbsent, keyed on the full argument tuple.",
+      },
+    ],
+  },
+  {
+    id: 24,
+    slug: "enrich-accounts",
+    lang: "TypeScript",
+    level: "Standard",
+    title: "Enrich accounts",
+    shape: "function",
+    code: t(s24),
+    brief: "Fans out one lookup per account and returns the combined records.",
+    hintRegion: "Line 19. What does the function return, and when?",
+    hintFamily: "Time & concurrency, Contract, Failure surface, Silent coercion.",
+    defects: [
+      {
+        family: "time",
+        title: "forEach does not await its async callback",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "Array.prototype.forEach ignores the promise the callback returns. Every fetchPlan is started, then the function falls straight through to the sort and returns an empty array before any of them resolve. failures is also empty, so the console.warn never fires and the function reports total success with zero results. Later, the pushes land on an array nobody is holding, and any rejection that escapes the try becomes an unhandled rejection that can take the process down minutes after the request finished.",
+        fix: "await Promise.all(accounts.map(async (a) => { ... })) — or Promise.allSettled and inspect the results.",
+      },
+      {
+        family: "contract",
+        title: "The return type promises one record per account",
+        signal: "silent",
+        severity: "major",
+        body:
+          "Enriched[] gives the caller no way to line results up with inputs, and the failure path drops accounts entirely, so out.length silently differs from accounts.length. A caller that zips the two arrays by index — the obvious thing to do with a function shaped like this — pairs the wrong plan with the wrong account.",
+        fix:
+          "Return a Map<string, Enriched> or Array<{ id: string; result: Enriched | Error }>. Make partial success representable in the type.",
+      },
+      {
+        family: "failure",
+        title: "Errors are counted, not reported",
+        signal: "silent",
+        severity: "major",
+        body:
+          "The catch discards the error object and keeps only the id. The caller receives a shorter array and no signal at all; the only trace is a warn line on stdout with a number in it. 'Nine hundred accounts failed' and 'the auth token expired' are the same event, and only one of them is actionable.",
+        fix: "Keep the errors and return them, or rethrow an AggregateError once the fan-out completes.",
+      },
+      {
+        family: "coercion",
+        title: "The comparator never returns 0",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "`x.email > y.email ? 1 : -1` claims every pair is strictly ordered, including equal pairs. An inconsistent comparator is undefined behaviour for sort: V8's TimSort can produce an order that is not merely unstable but wrong, moving unrelated elements. It is also a raw UTF-16 code-unit comparison, so accented and non-Latin addresses sort in an order no user recognises.",
+        fix: "(x, y) => x.email.localeCompare(y.email)",
+      },
+      {
+        family: "time",
+        title: "The fix introduces unbounded concurrency",
+        signal: "mixed",
+        severity: "major",
+        body:
+          "Worth flagging in the same review, because Promise.all over accounts.map is where this lands next: fifty thousand accounts means fifty thousand simultaneous requests, which exhausts sockets locally and rate-limits or topples the dependency remotely. There is also no timeout, so one hung request holds the whole batch open forever.",
+        fix:
+          "A bounded worker pool (p-limit, or a hand-rolled queue of N consumers), plus an AbortSignal timeout per request.",
+      },
+    ],
+  },
+  {
+    id: 25,
+    slug: "worker-pool",
+    lang: "Go",
+    level: "Hard",
+    title: "Bounded worker pool",
+    shape: "function",
+    code: t(s25),
+    brief:
+      "Runs fn over every id with at most `workers` in flight, and returns the results once all of them are done.",
+    hintRegion:
+      "Two separate reasons this function never returns. One of them `go vet` will tell you about; nobody ran `go vet`.",
+    hintFamily: "Shared state, Time & concurrency, Contract, Failure surface.",
+    defects: [
+      {
+        family: "state",
+        title: "sync.WaitGroup passed by value",
+        signal: "loud",
+        severity: "blocker",
+        body:
+          "worker takes `wg sync.WaitGroup`, not `*sync.WaitGroup`, so each goroutine calls Done() on its own copy. The counter in Process never drops below `workers` and wg.Wait() blocks forever. The compiler is perfectly happy; `go vet` reports 'passes lock by value: sync.WaitGroup contains sync.noCopy', which is the whole argument for vet being in CI rather than in someone's habits.",
+        fix: "worker(ctx, &wg, jobs, results, fn) and take *sync.WaitGroup.",
+      },
+      {
+        family: "time",
+        title: "The results channel is never closed",
+        signal: "loud",
+        severity: "blocker",
+        body:
+          "`for r := range results` only ends when results is closed, and nothing closes it. Even with the WaitGroup fixed, Process deadlocks: the range loop waits for a close that the workers cannot perform (any one of them closing it would panic the others' sends), and wg.Wait() is unreachable below it. The producer goroutine got this right for `jobs` and the same reasoning was not applied one line down.",
+        fix: "Start `go func() { wg.Wait(); close(results) }()` before the range loop, and drop the later wg.Wait().",
+      },
+      {
+        family: "contract",
+        title: "ctx is accepted and never used",
+        signal: "silent",
+        severity: "major",
+        body:
+          "The signature promises a cancellable, deadline-aware operation; the body threads ctx into worker and ignores it there too. A caller who cancels gets nothing — the pool runs every id to completion and the goroutines outlive the request that started them. A context parameter that is not selected on is worse than no parameter, because it advertises a guarantee the code does not provide.",
+        fix: "select on ctx.Done() in both the job loop and the result send, and pass ctx into fn.",
+      },
+      {
+        family: "time",
+        title: "The timeout abandons the work rather than stopping it",
+        signal: "silent",
+        severity: "major",
+        body:
+          "On the time.After branch, the goroutine running fn is still running. Its side effects land after the caller has been told 'timeout on X', so a retry runs fn twice concurrently on the same id — two writes, two charges, two emails. The buffered done channel prevents a goroutine leak on the send but does nothing about the work itself. time.After also allocates a timer per job that is not collected until it fires, so a fast queue holds five seconds' worth of dead timers at all times.",
+        fix:
+          "Give fn a context with a deadline and make it honour cancellation. Use a timer you can Stop, or context.WithTimeout.",
+      },
+      {
+        family: "failure",
+        title: "No aggregate outcome, and a library writing to stdout",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "Per-item errors are returned, but there is no way to express 'the run was cancelled' or 'the pool itself failed' — the caller has to infer it from a short slice. fmt.Printf from a package makes that inference harder, not easier: a library that prints cannot be embedded in anything with a log format.",
+        fix: "Return ([]Result, error) and take a *slog.Logger, or return the counts and print at the call site.",
+      },
+    ],
+  },
+  {
+    id: 26,
+    slug: "revenue-report",
+    lang: "SQL",
+    level: "Hard",
+    title: "Revenue report gains a filter",
+    shape: "diff",
+    code: t(s26),
+    brief:
+      "Ticket: exclude cancelled orders, limit the report to the last twelve months, and add an average order value.",
+    hintRegion:
+      "The comment on line 1 is part of the diff's context, and the change makes it false. Read the WHERE clause against the join type.",
+    hintFamily: "Contract, Boundaries, Silent coercion, Time.",
+    defects: [
+      {
+        family: "contract",
+        title: "A WHERE predicate on the outer side demotes the LEFT JOIN to an INNER JOIN",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "For an account with no orders, every `o.*` column is NULL. `NULL <> 'cancelled'` evaluates to NULL, not true, so WHERE drops the row — and the same applies to the created_at bound. The query's stated purpose, in a comment the diff leaves untouched two lines above, is to include accounts with no orders yet. Those accounts now vanish from the report entirely. Nothing errors; the report is simply shorter, and the rows that disappeared are the ones a churn or onboarding dashboard exists to show.",
+        fix:
+          "Move both predicates into the ON clause: LEFT JOIN orders o ON o.account_id = a.id AND o.status <> 'cancelled' AND o.created_at >= ...",
+      },
+      {
+        family: "boundary",
+        title: "COUNT(*) counts the null-extended row",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "The diff changes COUNT(o.id) to COUNT(*). On a LEFT JOIN those are different functions: COUNT(o.id) skips NULLs and reports 0 for an account with no orders, while COUNT(*) counts rows and reports 1. So every order-less account claims one order worth zero cents, and avg_order_cents is computed against that phantom. The two defects mask each other — while the WHERE clause is wrong those accounts are filtered out, so fixing the join is what makes this one appear. That is the usual shape: the safe-looking half of a change is only safe because the unsafe half is hiding it.",
+        fix: "Keep COUNT(o.id), and divide by COUNT(o.id) with a NULLIF guard.",
+      },
+      {
+        family: "coercion",
+        title: "Integer division on the average",
+        signal: "silent",
+        severity: "major",
+        body:
+          "amount_cents is an integer type, so SUM(...) / COUNT(*) is bigint / bigint and Postgres truncates. An average of 1999.87 cents reports as 1999, every time, always downward. Presented next to an exact revenue_cents total it reads as precise, and a spreadsheet that multiplies the average back out will not reconcile with the sum.",
+        fix: "SUM(o.amount_cents)::numeric / NULLIF(COUNT(o.id), 0), then round explicitly.",
+      },
+      {
+        family: "coercion",
+        title: "`<> 'cancelled'` also drops orders with a NULL status",
+        signal: "silent",
+        severity: "major",
+        body:
+          "Independently of the join problem: an order whose status has not been set yet — pending insertion by a worker, or a column added with no backfill — compares NULL against 'cancelled' and is excluded. Revenue that exists in the orders table silently does not appear in the revenue report, and the missing amount is proportional to how busy the system was when the report ran.",
+        fix: "AND (o.status IS NULL OR o.status <> 'cancelled') — or COALESCE the status to a known default.",
+      },
+      {
+        family: "time",
+        title: "NOW() makes the report unreproducible and the oldest month partial",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "NOW() - INTERVAL '12 months' lands mid-month, so the twelfth month back is a partial month shown in the same column as eleven full ones — a graph of this data always dips at the left edge. NOW() also resolves in the session's time zone against a timestamptz column, so the same query run by a scheduler in UTC and by an analyst in PDT disagrees on which orders fall in which month.",
+        fix:
+          "Take the window as an explicit parameter, truncate it to a month boundary, and be explicit about the zone: >= DATE_TRUNC('month', $1::timestamptz AT TIME ZONE 'UTC').",
+      },
+    ],
+  },
+  {
+    id: 27,
+    slug: "job-poller",
+    lang: "React",
+    level: "Hard",
+    title: "Job status poller",
+    shape: "function",
+    code: t(s27),
+    brief: "A hook that polls a job until it finishes, and the list component that uses it.",
+    hintRegion:
+      "The effect on line 29 is missing something. And `tick` closes over two values that are not in its dependency array.",
+    hintFamily: "Time & concurrency, Shared state, Failure surface, Boundaries.",
+    defects: [
+      {
+        family: "time",
+        title: "The effect has no cleanup, so polling outlives the component",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "Nothing clears timer.current on unmount or when jobId changes. A new jobId starts a second chain while the first keeps running, and both call setStatus — so the status shown is whichever chain last resolved, which is usually the stale one, because the old job is further along and its request is faster. On unmount the fetch still resolves and setState fires on a dead component. The `cancel` handle the hook returns is the only way to stop it, and no caller in this file uses it.",
+        fix:
+          "Return a cleanup from the effect that clears the timer and flips a `cancelled` ref the code checks after every await.",
+      },
+      {
+        family: "state",
+        title: "useCallback's dependency array omits onDone",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "tick is memoised on [jobId] but closes over onDone, which JobPanel recreates on every render. So tick keeps the very first onDone forever — and that closure captured the very first `log`, the empty array. Every completion runs setLog([...[], entry]), so the log never holds more than one line and which line it holds depends on completion order. The lint rule that catches this (react-hooks/exhaustive-deps) is a warning, and generated code frequently ships with the dependency array trimmed to whatever made the warning quiet.",
+        fix:
+          "Keep onDone in a ref updated each render, and use the functional form: setLog((l) => [...l, entry]).",
+      },
+      {
+        family: "failure",
+        title: "res.ok is never checked before res.json()",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "A 500 that returns an HTML error page throws a SyntaxError, which lands in setError as 'Unexpected token <' — the operator is shown a JSON parsing problem instead of 'the job service is down'. A 404 that returns valid JSON is worse: body.status is undefined, which is neither 'succeeded' nor 'failed', so the poller schedules itself again and keeps requesting a job that does not exist until the tab is closed.",
+        fix:
+          "if (!res.ok) throw new Error(`job ${jobId}: HTTP ${res.status}`), and treat an unrecognised status as terminal rather than as 'keep going'.",
+      },
+      {
+        family: "failure",
+        title: "The catch path stops polling permanently",
+        signal: "silent",
+        severity: "major",
+        body:
+          "setError is called and no timer is rescheduled, so a single transient network blip ends the poll for good. The UI keeps displaying the last status it saw, which is 'running', and the parent is never told — `error` is returned from the hook but JobPanel does not read it. A job that finished ten minutes ago shows as in progress with no indication that the page stopped asking.",
+        fix:
+          "Reschedule with backoff on a transient failure, cap the attempts, and surface the error where the caller can render it.",
+      },
+      {
+        family: "boundary",
+        title: "key={i} on a list whose items come and go",
+        signal: "silent",
+        severity: "major",
+        body:
+          "React identifies children by key, so with an index key, removing the first job shifts every subsequent one onto its neighbour's key. The JobRow instance — and the hook state inside it, including the in-flight poll for a different jobId — is reused for the wrong job. The symptom is one job's status appearing on another row, which reads as a backend bug.",
+        fix: "key={job.id}",
+      },
+    ],
+  },
+  {
+    id: 28,
+    slug: "pricing-cache",
+    lang: "Python",
+    level: "Hard",
+    title: "Pricing engine gains a cache",
+    shape: "diff",
+    code: t(s28),
+    brief:
+      "Ticket: quote() is hot, so cache it. Also add a rush surcharge and a way to reload the rate card.",
+    hintRegion:
+      "What is in the cache key that the author did not intend to put there? And what happens when reload() is called?",
+    hintFamily: "Shared state, Contract, Silent coercion, Boundaries.",
+    defects: [
+      {
+        family: "state",
+        title: "reload() cannot invalidate the cache, so prices freeze",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "lru_cache keys on all arguments including self, and reload() mutates the same self in place. The key is therefore unchanged by the new rate card, and every (sku, region, qty) combination already quoted keeps returning the old price for the life of the process. A pricing update appears to deploy successfully and silently does not take effect for exactly the popular items — the ones already in the cache. This is the defect that costs money, and it is invisible in any test that constructs a fresh PricingEngine.",
+        fix:
+          "Cache a module-level function of the rate card's version, or hold the cache on the instance and clear it in reload(). Never memoise a method whose correctness depends on mutable instance state.",
+      },
+      {
+        family: "contract",
+        title: "lru_cache requires hashable arguments, and the same diff adds a dict",
+        signal: "loud",
+        severity: "blocker",
+        body:
+          "options=None is hashable, so the default path caches fine. The moment a caller passes the rush option the diff was written to support — quote(sku, region, qty, {\"rush\": True}) — it raises TypeError: unhashable type: 'dict'. The new feature and the new cache are mutually exclusive, and the happy path is the one that works, so a smoke test passes.",
+        fix:
+          "Take the option as a keyword-only bool (rush: bool = False), or accept a frozenset of flags.",
+      },
+      {
+        family: "state",
+        title: "Memoising a method pins every instance in memory",
+        signal: "silent",
+        severity: "major",
+        body:
+          "The cache holds a strong reference to self, so no PricingEngine is ever collected — in a request-scoped or tenant-scoped design that is an unbounded leak that looks like a slow memory climb with no single culprit. Cache hits are also decided by the instance's __eq__ and __hash__, which here are identity, so two engines built from identical rate cards share nothing.",
+        fix: "Move the cached computation to a free function that takes only value types.",
+      },
+      {
+        family: "coercion",
+        title: "int(base * 1.15) truncates, and the float is not what you think",
+        signal: "silent",
+        severity: "major",
+        body:
+          "int() truncates toward zero rather than rounding, so the surcharge is always at least a fraction of a cent light. The float multiply makes which fraction unpredictable: 2000 * 1.15 is 2299.9999999999995, so a 15% surcharge on 2000 cents yields 2299 rather than 2300. The error is one cent, at amounts you cannot predict from reading the code, in a number that appears on an invoice.",
+        fix: "Integer arithmetic on cents: base = base * 115 // 100, with the rounding direction stated.",
+      },
+      {
+        family: "boundary",
+        title: "qty in the key makes maxsize meaningless",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "The key space is sku × region × qty × options, and qty is an unbounded integer a caller supplies. With 1024 slots and a long tail of quantities, the hit rate collapses toward zero while the retained-instance cost from the previous defect keeps growing. The cache was added because quote() is hot; as keyed, it is pure overhead plus a correctness hazard.",
+        fix:
+          "Cache the per-unit rate lookup, which is low-cardinality, and do the qty arithmetic outside the cache.",
+      },
+    ],
+  },
+  {
+    id: 29,
+    slug: "report-builder",
+    lang: "Java",
+    level: "Standard",
+    title: "Report builder",
+    shape: "function",
+    code: t(s29),
+    brief: "Accumulates totals per (region, tier) and renders a text report.",
+    hintRegion:
+      "The equals method is the interesting one. Then look at what `static` means for the field on line 11.",
+    hintFamily: "Silent coercion, Time & concurrency, Shared state, Failure surface.",
+    defects: [
+      {
+        family: "coercion",
+        title: "equals compares Strings with ==",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "`region == other.region` compares references. It is true for interned literals, which is why every unit test written with \"US\" and \"gold\" passes. It is false for the same text arriving from a ResultSet, a JSON parser, String.substring or concatenation — so in production two logically equal keys are never equal. hashCode still agrees, so they land in the same bucket and equals separates them: every add() creates a new entry, and render()'s lookup finds none of them.",
+        fix: "Objects.equals(region, other.region), or make AccountKey a record.",
+      },
+      {
+        family: "time",
+        title: "A static SimpleDateFormat shared across threads",
+        signal: "mixed",
+        severity: "blocker",
+        body:
+          "SimpleDateFormat keeps parse and format state in a mutable Calendar field, and this one is static. Two threads rendering at once produce interleaved output: a date from the wrong instant, a garbled string, or a NumberFormatException thrown from inside format(). It is intermittent and load-dependent, so it reproduces in production and not in a test. Making a formatter static is the textbook micro-optimisation, which is exactly why it is so well represented in training data.",
+        fix: "DateTimeFormatter.ofPattern(\"yyyy-MM-dd\") — immutable and thread safe — with java.time types.",
+      },
+      {
+        family: "failure",
+        title: "A missing region renders the literal string \"null\"",
+        signal: "silent",
+        severity: "major",
+        body:
+          "totals.get(...) returns null for a region with no rows, and StringBuilder.append(Object) writes \"null\". The report then contains a line reading `EMEA: null`, which is indistinguishable from a genuine zero to a reader and fatal to any parser downstream. Had the author written `double total = totals.get(key)` instead, the same case would have been a NullPointerException — a loud failure is the better bug here, and the code accidentally chose the quiet one.",
+        fix: "totals.getOrDefault(key, 0.0), and format it explicitly.",
+      },
+      {
+        family: "coercion",
+        title: "Double for money",
+        signal: "silent",
+        severity: "major",
+        body:
+          "Repeated `current + amount` on doubles accumulates representation error, so a column of amounts that sum exactly by hand disagrees in the report at a magnitude that grows with the row count. The boxed Double adds an allocation per add() and an unboxing NPE hazard, and the rendered value carries whatever digits the double happens to have — 1234.5600000000002 is what a finance team sees.",
+        fix: "long cents, or BigDecimal with an explicit scale and RoundingMode.",
+      },
+      {
+        family: "state",
+        title: "The map key's fields are mutable",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "region and tier are non-final and package-visible. Anything that mutates an AccountKey after it has been used to insert changes its hashCode, so the entry is in the wrong bucket and is unreachable forever — the value is still in the map, still retained, and can never be found or removed. Keys must be immutable, and nothing here enforces it.",
+        fix: "final fields, a private constructor, or a record.",
+      },
+    ],
+  },
+  {
+    id: 30,
+    slug: "bulk-uploader",
+    lang: "C#",
+    level: "Hard",
+    title: "Bulk uploader",
+    shape: "function",
+    code: t(s30),
+    brief: "Uploads a set of files to a bucket in parallel and keeps a manifest of what landed.",
+    hintRegion: "Line 15 has one word that decides how every failure in this class behaves.",
+    hintFamily: "Failure surface, Shared state, Boundaries, Time & concurrency.",
+    defects: [
+      {
+        family: "failure",
+        title: "async void",
+        signal: "mixed",
+        severity: "blocker",
+        body:
+          "An async void method returns no Task, so the caller cannot await it and cannot catch anything it throws. Control returns at the first await, which means Manifest() called on the next line reads a list that is still being filled. Any exception is raised on the captured context instead of propagating; on .NET Core, with no synchronisation context, it goes to the thread pool and terminates the process — long after the call site, with a stack that does not include it. Nothing about the signature warns the caller; it reads exactly like a fire-and-forget helper is supposed to.",
+        fix: "public async Task UploadAllAsync(...) — async void is only ever correct for an event handler.",
+      },
+      {
+        family: "state",
+        title: "List<T>.Add from many concurrent tasks",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "Every UploadOne task appends to the same List<string>. List<T> is not thread safe: concurrent Adds race on the count and the backing array, so entries are silently overwritten, and an Add that lands during a resize can throw IndexOutOfRangeException from inside the framework or leave a null hole. The manifest is short by an amount that varies per run, and a short manifest is indistinguishable from files that genuinely failed to upload — which is what the manifest exists to tell you.",
+        fix: "Return the path from UploadOne and collect the results of Task.WhenAll, or use ConcurrentBag.",
+      },
+      {
+        family: "failure",
+        title: "A non-success response is silently dropped",
+        signal: "silent",
+        severity: "blocker",
+        body:
+          "The `if (response.IsSuccessStatusCode)` has no else. A 403 from an expired credential, a 413 on an oversized file and a 500 from the storage tier all end the same way: the file is absent from _uploaded and nobody is told. The count printed at the end is then the only signal, and it is a number with no names attached. IsSuccessStatusCode is also 2xx only, so a 307 redirect reads as failure, while a 200 carrying an error document in its body reads as success.",
+        fix:
+          "response.EnsureSuccessStatusCode() inside a try, and return a per-file outcome that names the status and the path.",
+      },
+      {
+        family: "boundary",
+        title: "The object key is the file name, not the path",
+        signal: "silent",
+        severity: "major",
+        body:
+          "Path.GetFileName collapses 2024/report.csv and 2025/report.csv onto the same object. The second upload overwrites the first, both return 200, both are added to the manifest, and the run reports two files uploaded. The data loss is complete, silent and confirmed by the log.",
+        fix:
+          "Key on the path relative to the upload root, normalised and URI-escaped — and set If-None-Match if overwriting should be an error.",
+      },
+      {
+        family: "time",
+        title: "No concurrency limit and no per-file timeout",
+        signal: "mixed",
+        severity: "major",
+        body:
+          "paths is an IEnumerable, so a lazily enumerated directory walk starts a task per file with no ceiling — a hundred thousand files means a hundred thousand open streams and sockets, and File.OpenRead will start throwing before HttpClient does. HttpClient's default 100-second timeout applies per request, and Task.WhenAll waits for the slowest, so one stalled upload holds every open file handle for the duration. Enumerating an IEnumerable exactly once also makes this method unsafe to retry with the same argument if the caller passed a LINQ query.",
+        fix:
+          "Parallel.ForEachAsync with MaxDegreeOfParallelism, a CancellationToken with a per-file deadline, and materialise the paths first.",
       },
     ],
   },

@@ -1,5 +1,8 @@
-import type { Progress, DrillProgress } from "./types";
+import type { Progress, DrillProgress, TimedSession } from "./types";
 
+// The key is deliberately still v1: the shape only ever gained fields, and
+// normalise() fills them in, so a store written by an earlier build loads
+// without losing a single note.
 const KEY = "bug-finder:progress:v1";
 
 export const EMPTY_DRILL: DrillProgress = {
@@ -9,8 +12,8 @@ export const EMPTY_DRILL: DrillProgress = {
   caught: {},
 };
 
-function empty(): Progress {
-  return { version: 1, drills: {}, lessonsRead: {} };
+export function empty(): Progress {
+  return { version: 2, drills: {}, lessonsRead: {}, sessions: [] };
 }
 
 export function load(): Progress {
@@ -75,7 +78,55 @@ export function normalise(input: unknown): Progress {
     }
   }
 
+  if (Array.isArray(src.sessions)) {
+    for (const raw of src.sessions) {
+      const s = normaliseSession(raw);
+      if (s) out.sessions.push(s);
+    }
+  }
+
   return out;
+}
+
+function normaliseSession(input: unknown): TimedSession | null {
+  if (typeof input !== "object" || input === null) return null;
+  const s = input as Record<string, unknown>;
+  if (!Array.isArray(s.drillIds)) return null;
+
+  const drillIds = s.drillIds.filter((n): n is number => Number.isInteger(n));
+  if (drillIds.length === 0) return null;
+
+  const spent: Record<number, number> = {};
+  if (typeof s.spent === "object" && s.spent !== null) {
+    for (const [k, v] of Object.entries(s.spent as Record<string, unknown>)) {
+      const id = Number(k);
+      if (Number.isInteger(id) && typeof v === "number" && v >= 0) spent[id] = v;
+    }
+  }
+
+  const caught: Record<number, number[]> = {};
+  if (typeof s.caught === "object" && s.caught !== null) {
+    for (const [k, v] of Object.entries(s.caught as Record<string, unknown>)) {
+      const id = Number(k);
+      if (Number.isInteger(id) && Array.isArray(v)) {
+        caught[id] = v.filter((n): n is number => Number.isInteger(n));
+      }
+    }
+  }
+
+  const startedAt = typeof s.startedAt === "number" ? s.startedAt : 0;
+  return {
+    id: typeof s.id === "string" ? s.id : String(startedAt),
+    startedAt,
+    finishedAt: typeof s.finishedAt === "number" ? s.finishedAt : startedAt,
+    secondsPerDrill:
+      typeof s.secondsPerDrill === "number" && s.secondsPerDrill > 0
+        ? s.secondsPerDrill
+        : 300,
+    drillIds,
+    spent,
+    caught,
+  };
 }
 
 export function drillState(p: Progress, id: number): DrillProgress {

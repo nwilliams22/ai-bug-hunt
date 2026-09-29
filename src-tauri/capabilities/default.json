@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The course runs offline and calls no Tauri command, so the window gets the core defaults and nothing else.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

@@ -1,0 +1,27 @@
+[Unit]
+Description=Bug Finder — self-hosted course on reviewing AI-generated code
+Documentation=file://@@DIR@@/README.md
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@@DIR@@
+Environment=NODE_ENV=production
+Environment=PORT=@@PORT@@
+Environment=HOST=127.0.0.1
+ExecStart=@@NODE@@ @@DIR@@/scripts/serve.mjs
+Restart=on-failure
+RestartSec=3
+
+# It serves static files from one directory on loopback and needs nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ReadOnlyPaths=@@DIR@@
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+
+[Install]
+WantedBy=default.target

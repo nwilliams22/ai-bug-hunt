@@ -142,6 +142,8 @@ export async function run(cdpBase) {
     ["#/lesson/pass-coercion", ".md h2", "lesson headings"],
     ["#/lesson/pass-boundary", ".md-table td", "markdown table"],
     ["#/gotchas/Go", ".gotcha", "gotcha cards for one language"],
+    ["#/gotchas/C%2B%2B", ".gotcha", "gotcha cards for a language whose name needs escaping"],
+    ["#/gotchas/Kotlin", ".gotcha", "gotcha cards for Kotlin"],
     ["#/gotchas", ".gotcha", "all gotcha cards"],
     ["#/drills", ".drill-table tr", "drill index table"],
     ["#/nope/nope", ".card", "unknown route falls back to the overview"],
@@ -207,6 +209,141 @@ export async function run(cdpBase) {
     "every lesson renders a body",
     lessonFailures === 0 && lessonHashes.length > 0,
     `${lessonHashes.length} lessons`,
+  );
+
+  /* --------------------- a newly added grammar highlights ----------------- */
+
+  await evalJs(`location.hash = "#/drill/20"`);
+  await sleep(300);
+  check(
+    "a language added after the first build highlights (C++)",
+    (await evalJs(`document.querySelectorAll(".code .token").length`)) > 10,
+  );
+
+  /* ------------------------- timed mode, end to end ---------------------- */
+
+  const click = (text) =>
+    evalJs(
+      `(() => {
+        const b = [...document.querySelectorAll("button")]
+          .find(el => el.textContent.trim().startsWith(${JSON.stringify(text)}));
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+    );
+
+  const type = (value) =>
+    evalJs(`
+      (() => {
+        const ta = document.querySelector(".ta");
+        if (!ta) return false;
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+        setter.call(ta, ${JSON.stringify(value)});
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()
+    `);
+
+  // A fresh store, so the untimed drill-8 state above cannot affect the session.
+  await evalJs(`localStorage.clear(); location.hash = "#/timed"`);
+  await send("Page.reload");
+  await sleep(1200);
+  // Both confirm() dialogs in this view would otherwise block the page.
+  await evalJs(`window.confirm = () => true`);
+
+  check(
+    "timed setup offers its options",
+    (await evalJs(`document.querySelectorAll(".chip").length`)) >= 10,
+  );
+
+  await evalJs(
+    `[...document.querySelectorAll(".chip")].find(c => c.textContent.trim() === "3").click()`,
+  );
+  await sleep(150);
+  check("starting a session is offered", (await click("Start")) === true);
+  await sleep(400);
+
+  check(
+    "the clock is running and the position is shown",
+    /^\d+:\d\d$/.test(await evalJs(`document.querySelector(".timer-clock")?.textContent ?? ""`)) &&
+      (await evalJs(`document.querySelector(".timer-pos")?.textContent ?? ""`)).includes(
+        "Sample 1 of 3",
+      ),
+  );
+  check(
+    "hints and the defect count are withheld during a timed run",
+    (await evalJs(`document.querySelectorAll(".passes, .hint").length`)) === 0 &&
+      (await evalJs(`document.querySelector(".meta-note")?.textContent ?? ""`)).includes(
+        "withheld",
+      ),
+  );
+
+  await type("Line 2 — accumulator seeded at zero, so all-negative input returns zero.");
+  await sleep(200);
+  await click("Submit and next");
+  await sleep(400);
+  check(
+    "submitting advances to the next sample",
+    (await evalJs(`document.querySelector(".timer-pos")?.textContent ?? ""`)).includes(
+      "Sample 2 of 3",
+    ),
+  );
+
+  await send("Page.reload");
+  await sleep(1200);
+  await evalJs(`window.confirm = () => true`);
+  check(
+    "an in-flight session survives a reload at the same position",
+    (await evalJs(`document.querySelector(".timer-pos")?.textContent ?? ""`)).includes(
+      "Sample 2 of 3",
+    ),
+  );
+
+  await type("Mutates its argument in place; the caller still holds the reference.");
+  await sleep(200);
+  await click("Submit and next");
+  await sleep(400);
+  await type("Every rejection returns the same null, so the caller cannot tell them apart.");
+  await sleep(200);
+  await click("Submit and score");
+  await sleep(500);
+
+  check(
+    "the last submission opens the debrief",
+    (await evalJs(`document.body.textContent`)).includes("Debrief"),
+  );
+  check(
+    "the debrief shows what you wrote for every sample",
+    (await evalJs(`document.querySelectorAll("blockquote.wrote").length`)) === 3,
+  );
+  const debriefDefs = await evalJs(`document.querySelectorAll(".def").length`);
+  check("the debrief reveals the planted defects", debriefDefs >= 6, `${debriefDefs} shown`);
+
+  await evalJs(`document.querySelector(".def input[type=checkbox]").click()`);
+  await sleep(250);
+  await click("Record this session");
+  await sleep(500);
+  check(
+    "recording the session confirms and summarises it",
+    (await evalJs(`document.body.textContent`)).includes("Session recorded"),
+  );
+  check(
+    "the timed run is cleared from storage once recorded",
+    (await evalJs(`localStorage.getItem("bug-finder:timed:v1") === null`)) === true,
+  );
+  check(
+    "the session feeds the ordinary drill score",
+    /\b3\/\d+ reviewed/.test(
+      await evalJs(`document.querySelector(".score")?.textContent ?? ""`),
+    ),
+  );
+
+  await evalJs(`location.hash = "#/progress"`);
+  await sleep(450);
+  check(
+    "the progress page lists the session",
+    (await evalJs(`document.body.textContent`)).includes("blockers missed"),
   );
 
   /* ------------------------------ console -------------------------------- */

@@ -9,7 +9,10 @@ import { HomeView, DrillTable } from "./views/HomeView";
 import { LessonView } from "./views/LessonView";
 import { DrillView } from "./views/DrillView";
 import { GotchasView } from "./views/GotchasView";
+import { TimedView } from "./views/TimedView";
 import { ProgressView, computeStats } from "./views/ProgressView";
+import { toSession } from "./timed";
+import type { TimedRun } from "./types";
 
 export default function App() {
   const route = useRoute();
@@ -31,6 +34,16 @@ export default function App() {
           ...patch,
         },
       },
+    }));
+  }, []);
+
+  const addSession = useCallback((run: TimedRun) => {
+    const session = toSession(run);
+    setProgress((p) => ({
+      ...p,
+      // Recording the same session twice — a double-clicked button — must not
+      // duplicate the history row.
+      sessions: [...p.sessions.filter((s) => s.id !== session.id), session],
     }));
   }, []);
 
@@ -93,6 +106,14 @@ export default function App() {
           )}
 
           {route.view === "gotchas" && <GotchasView lang={route.lang} />}
+
+          {route.view === "timed" && (
+            <TimedView
+              progress={progress}
+              commitDrill={updateDrill}
+              addSession={addSession}
+            />
+          )}
 
           {route.view === "progress" && (
             <ProgressView progress={progress} stats={stats} replace={setProgress} />
@@ -192,6 +213,14 @@ function Sidebar({
         </section>
 
         <section className="side-sec">
+          <a
+            className="side-link"
+            data-on={route.view === "timed" ? "1" : "0"}
+            href={href({ view: "timed" })}
+          >
+            <span className="side-mark">·</span>
+            Timed review
+          </a>
           <a
             className="side-link"
             data-on={route.view === "progress" ? "1" : "0"}
