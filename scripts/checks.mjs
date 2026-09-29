@@ -701,6 +701,31 @@ export async function run(cdpBase) {
     (await evalJs(`document.querySelector('[aria-label="Review calibration"]').textContent`)).includes('0 recorded verdicts') &&
     (await evalJs(`document.querySelectorAll('.fam-row').length`)) === 0);
 
+  await evalJs(`location.hash = '#/drills'`);
+  await sleep(200);
+  check('drill index conceals answer counts for unreviewed samples',
+    (await evalJs(`document.querySelector('.drill-table a[href="#/drill/52"]').closest('tr').children[4].textContent.trim()`)) === '—');
+
+  await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
+    drills: {50: {note: 'Original committed evidence', revealed: true, hintLevel: 0,
+      caught: {}, verdict: 'approve', falsePositives: 3}}, reviews: {}, lessonsRead: {}, sessions: []}));
+    localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
+      startedAt: Date.now() - 10000, secondsPerDrill: 60, drillIds: [50], at: 1,
+      drillStartedAt: Date.now(), notes: {50: 'Different timed review evidence'},
+      spent: {50: 10}, phase: 'debrief', caught: {}
+    })); location.hash = '#/timed'`);
+  await send('Page.reload');
+  await sleep(900);
+  await click('Record this session');
+  await sleep(200);
+  check('timed repetition preserves the original verdict and false-positive cost',
+    (await evalJs(`(() => { const p = JSON.parse(localStorage.getItem('${progressKey}'));
+      return p.drills[50].note === 'Original committed evidence' && p.drills[50].falsePositives === 3 &&
+        p.drills[50].verdict === 'approve' && p.reviews[50]?.length === 1 &&
+        p.reviews[50][0].note === 'Different timed review evidence' &&
+        p.reviews[50][0].verdict === undefined && p.reviews[50][0].falsePositives === undefined;
+    })()`)) === true);
+
   /* ------------------------------ console -------------------------------- */
 
   await sleep(300);
