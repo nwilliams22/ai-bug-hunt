@@ -559,6 +559,84 @@ a {
   accent-color: var(--caught);
 }
 
+/* --------------------------- the model's review ------------------------ */
+
+.model-review {
+  margin-top: 14px;
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+.model-review summary {
+  display: flex;
+  gap: 11px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 13px 15px;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.model-review[open] summary {
+  border-bottom: 1px solid var(--rule-soft);
+}
+.model-review-n {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.verdict {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border: 1px solid;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.verdict-request-changes {
+  color: var(--defect);
+  border-color: var(--defect);
+  background: #f8efec;
+}
+.verdict-approve-with-comments {
+  color: var(--hint);
+  border-color: var(--hint);
+  background: #faf6e9;
+}
+.verdict-approve {
+  color: var(--caught);
+  border-color: var(--caught);
+  background: #f4f8f4;
+}
+.verdict-reason {
+  font-size: 13.5px;
+  padding: 13px 15px 0;
+  max-width: 72ch;
+}
+.mrv-f {
+  border-top: 1px solid var(--rule-soft);
+  padding: 11px 15px 3px;
+}
+.mrv-t {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.mrv-n {
+  color: var(--muted);
+  font-weight: 400;
+}
+.mrv-where {
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--muted);
+  margin: 0 0 7px;
+}
+.mrv-b {
+  font-size: 13.5px;
+  margin: 0 0 8px;
+  max-width: 72ch;
+}
+
 .pager {
   display: flex;
   justify-content: space-between;

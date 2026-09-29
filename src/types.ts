@@ -88,6 +88,30 @@ export interface Module {
   blurb: string;
 }
 
+/* ---------- the model's own review of each drill ---------- */
+
+export type Verdict =
+  | "approve"
+  | "approve-with-comments"
+  | "request-changes";
+
+/**
+ * What a careful reviewer files for a drill, written to the "writing the
+ * finding" standard: verdict up front, findings ordered by severity.
+ */
+export interface ModelReview {
+  verdict: Verdict;
+  /** The one reason for the verdict, stated up front. */
+  reason: string;
+  findings: {
+    title: string;
+    /** Where in the sample, named the way a review would ("line 3, …"). */
+    where: string;
+    /** Trigger → what the caller sees → the fix, in that order. */
+    body: string;
+  }[];
+}
+
 export interface Gotcha {
   id: string;
   lang: Lang;

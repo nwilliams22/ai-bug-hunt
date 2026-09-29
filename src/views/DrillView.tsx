@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { DRILLS, DRILL_BY_ID } from "../content/drills";
 import { PASSES, familyName } from "../content/passes";
 import { DrillCode } from "../components/CodeBlock";
+import { ModelReviewCard } from "../components/ModelReview";
 import { href } from "../route";
 import type { Defect, DrillProgress } from "../types";
 
@@ -173,6 +174,7 @@ export function DrillView({ id, state, update }: Props) {
                 <div className="def-f">{d.fix}</div>
               </div>
             ))}
+            <ModelReviewCard id={id} />
           </div>
         )}
       </div>

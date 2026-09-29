@@ -82,6 +82,10 @@ export async function run(cdpBase) {
     "planted defects are hidden before reveal",
     (await evalJs(`document.querySelectorAll(".def").length`)) === 0,
   );
+  check(
+    "the model's review is hidden before reveal",
+    (await evalJs(`document.querySelectorAll(".model-review").length`)) === 0,
+  );
 
   await evalJs(
     `[...document.querySelectorAll("button")].find(b => b.textContent.includes("Hint")).click()`,
@@ -114,12 +118,18 @@ export async function run(cdpBase) {
   await sleep(300);
   const defCount = await evalJs(`document.querySelectorAll(".def").length`);
   check("reveal shows every planted defect", defCount === 2, `${defCount} shown`);
+  check(
+    "the model's review appears after reveal",
+    (await evalJs(`document.querySelectorAll(".model-review").length`)) === 1 &&
+      (await evalJs(`document.querySelector(".model-review .verdict")?.textContent ?? ""`))
+        .includes("request changes"),
+  );
 
   await evalJs(`document.querySelector(".def input[type=checkbox]").click()`);
   await sleep(250);
   check(
     "ticking a defect updates the header score",
-    (await evalJs(`document.querySelector(".score")?.textContent ?? ""`)).includes("1/3"),
+    (await evalJs(`document.querySelector(".score")?.textContent ?? ""`)).includes("1/2"),
   );
 
   /* ------------------------ persistence across reload -------------------- */

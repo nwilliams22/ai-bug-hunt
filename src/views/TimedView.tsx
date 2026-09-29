@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DRILL_BY_ID } from "../content/drills";
 import { familyName } from "../content/passes";
 import { DrillCode } from "../components/CodeBlock";
+import { ModelReviewCard } from "../components/ModelReview";
 import { href } from "../route";
 import { drillState } from "../storage";
 import {
@@ -509,6 +510,7 @@ function Debrief({
                 <div className="def-f">{d.fix}</div>
               </div>
             ))}
+            <ModelReviewCard id={id} />
 
             <p className="note">
               <a href={href({ view: "drill", id: drill.id })}>Open this drill on its own</a>{" "}
