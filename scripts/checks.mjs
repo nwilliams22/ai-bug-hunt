@@ -346,6 +346,90 @@ export async function run(cdpBase) {
     (await evalJs(`document.body.textContent`)).includes("blockers missed"),
   );
 
+  /* ---------------------- multi-file PR reviews ------------------------- */
+
+  const fileSets = {
+    46: ["migrations/042-net.sql.diff", "reports/revenue.sql.diff", "sales/insert.sql"],
+    47: ["api/orders.py.diff", "clients/export.py", "schema/orders.sql"],
+    48: ["cache.ts.diff", "search.ts.diff", "sessions.ts"],
+    49: ["config.ts.diff", "worker.ts.diff", "ledger.ts"],
+  };
+  const visibleFiles = () => evalJs(`
+    [...document.querySelectorAll('.drill-file')].map(section => ({
+      path: section.getAttribute('aria-label'),
+      visible: section.getBoundingClientRect().height > 0 &&
+        !section.closest('details:not([open]), [hidden]'),
+      highlighted: section.querySelectorAll('.token').length > 0,
+      language: section.querySelector('pre').getAttribute('aria-label'),
+    }))
+  `);
+  for (const [id, paths] of Object.entries(fileSets)) {
+    await evalJs(`location.hash = "#/drill/${id}"`);
+    await sleep(250);
+    const files = await visibleFiles();
+    const inventory = await evalJs(`[...document.querySelectorAll('[aria-label="Review files"] li')].map(el => el.textContent)`);
+    check(`ordinary multi-file drill ${id} exposes all paths and blocks without clicks`,
+      JSON.stringify(inventory) === JSON.stringify(paths) &&
+      files.length === paths.length && files.every((f, i) => f.visible && f.path === paths[i]));
+    check(`multi-file drill ${id} highlights changed and unchanged files`,
+      files.length === paths.length && files.every(f => f.highlighted) &&
+      (id !== "47" || JSON.stringify(files.map(f => f.language)) ===
+        JSON.stringify(["py sample", "py sample", "sql sample"])));
+  }
+
+  // Seed a deterministic in-flight run through the same persisted resume path
+  // used after a reload; random selection must not decide capability coverage.
+  await evalJs(`
+    localStorage.setItem("bug-finder:timed:v1", JSON.stringify({
+      startedAt: Date.now() - 10000, secondsPerDrill: 60,
+      drillIds: [46, 47, 48, 49], at: 0, drillStartedAt: Date.now() - 10000,
+      notes: {}, spent: {}, phase: "running", caught: {},
+    }));
+    location.hash = "#/timed";
+  `);
+  await send("Page.reload");
+  await sleep(1200);
+  const clockSeconds = () => evalJs(`(() => {
+    const parts = document.querySelector('.timer-clock').textContent.split(':').map(Number);
+    return parts[0] * 60 + parts[1];
+  })()`);
+  const clockBefore = await clockSeconds();
+  await type("Check all writers, including the unchanged insert statement.");
+  await sleep(250);
+  const startedBefore = await evalJs(`JSON.parse(localStorage.getItem("bug-finder:timed:v1")).drillStartedAt`);
+  await send("Page.reload");
+  await sleep(1200);
+  const clockAfter = await clockSeconds();
+  check("multi-file resume preserves notes, position and the original deadline",
+    (await evalJs(`document.querySelector('.ta').value`)).includes("unchanged insert") &&
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:timed:v1")).drillStartedAt`)) === startedBefore &&
+    (await evalJs(`document.querySelector('.timer-pos').textContent`)).includes("Sample 1 of 4") &&
+    clockBefore <= 50 && clockAfter < clockBefore && clockAfter > 0);
+
+  for (const [id, paths] of Object.entries(fileSets)) {
+    const files = await visibleFiles();
+    check(`timed multi-file drill ${id} shows every highlighted file without clicks`,
+      files.length === paths.length && files.every((f, i) => f.path === paths[i] && f.visible && f.highlighted));
+    if (id === "46") {
+      await evalJs(`(() => {
+        const run = JSON.parse(localStorage.getItem("bug-finder:timed:v1"));
+        run.drillStartedAt = Date.now() - 61000;
+        localStorage.setItem("bug-finder:timed:v1", JSON.stringify(run));
+      })()`);
+      await send("Page.reload");
+      await sleep(1200);
+      check("an expired multi-file review advances exactly once on resume",
+        (await evalJs(`document.querySelector('.timer-pos').textContent`)).includes("Sample 2 of 4") &&
+        (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:timed:v1")).spent[46]`)) === 60);
+    } else {
+      await click(id === "49" ? "Submit and score" : "Submit and next");
+      await sleep(350);
+    }
+  }
+  check("multi-file timed run reaches debrief with all four reviews",
+    (await evalJs(`document.querySelectorAll('blockquote.wrote').length`)) === 4 &&
+    (await evalJs(`document.querySelectorAll('.def').length`)) === 8);
+
   /* ------------------------------ console -------------------------------- */
 
   await sleep(300);
