@@ -16,14 +16,28 @@ construction rather than by inspiration. One lesson per pass, plus five on worki
 review: reading a diff, writing the finding, severity and the verdict, reviewing the tests,
 and pacing under a clock. 14 lessons.
 
-**30 drills.** Plausible, confident, defective code across Python, JavaScript, TypeScript,
-React, SQL, Rust, Go, Java, C#, C++, Kotlin, Ruby, PHP and Bash — including four presented
-as *diffs*, which is the shape the paid work actually takes. Between two and six planted
-defects each, spanning several families, because the common failure of a real reviewer is
-not finding nothing: it is finding the first thing and stopping.
+**49 drills.** Plausible, confident, defective code across 14 languages — Python,
+JavaScript, TypeScript, React, SQL, Rust, Go, Java, C#, C++, Kotlin, Ruby, PHP and Bash —
+with 12 of them presented as *diffs*, which is the shape the paid work actually takes.
+**200 planted defects** in total, between two and six per drill and spanning several
+families, because the common failure of a real reviewer is not finding nothing: it is
+finding the first thing and stopping.
+
+4 of those span several files, which is the shape that catches people out: the changed
+lines are shown alongside the unchanged files they affect, and at least one defect per
+exercise is invisible from the diff alone — a caller never updated, a migration never
+written. The tool points your attention at what changed; the expensive defect is usually
+code that should exist and doesn't.
 
 Each drill is **gated**. You must write your review before the answers unlock. Recognition
 feels like learning and isn't.
+
+**A model review for the first 30 drills.** After you have written yours, you can compare
+it against the review a strong reviewer would actually file: a verdict up front
+(approve / approve-with-comments / request-changes), one stated reason, then the findings
+ordered by severity. Finding every defect and writing them up unusably still fails the
+job, and the write-up is the deliverable the paid work buys. It stays hidden until you
+have submitted your own, for the same reason the drills are gated.
 
 **A timed mode.** The paid version of this work has a clock on it, so the real question is
 not *can you find this defect* but *can you find it in six minutes, reliably, on the ninth
@@ -111,7 +125,7 @@ progress; the export/import on the Progress page is how you move between them.
 ### Verifying a change
 
 ```bash
-npm run check        # typecheck, build, then 38 end-to-end assertions
+npm run check        # counts, typecheck, build, then 55 end-to-end assertions
 ```
 
 `npm run smoke` drives a headless Chromium over the DevTools protocol — it needs a
@@ -119,7 +133,14 @@ Chromium binary but no test framework and no browser-automation dependency. It l
 the usual system paths and in the Playwright and Puppeteer caches; set `CHROME_PATH` if
 that fails. The assertions cover the reveal gate, progressive hints, scoring, persistence
 across reload, every route, every drill rendering its sample, every lesson rendering a
-body, a full timed session from setup through debrief to recording, and a clean console.
+body, multi-file drills showing every file without a click, the model review appearing
+only after reveal, a full timed session from setup through debrief to recording, and a
+clean console.
+
+`npm run stats` prints what is actually in the course — drills by language, level, family
+and severity. `npm run check` runs it with `--check` first, which fails the build if the
+counts stated in this README no longer match the content. The numbers above went stale the
+first time two people added drills on the same day; now they cannot.
 
 ## Adding a drill
 
@@ -127,15 +148,27 @@ body, a full timed session from setup through debrief to recording, and a clean 
    via Vite's `?raw`, so it is never compiled and never linted — write it exactly as the
    model would have. `.diff` files are rendered with the marker column peeled off and the
    rows tinted.
-2. Add an entry to `src/content/drills.ts`: `lang`, `level`, `shape`, the two hint levels,
-   and one `Defect` per planted bug.
+2. Add an entry to a batch module under `src/content/drills/`: `lang`, `level`, `shape`,
+   the two hint levels, and one `Defect` per planted bug. Drills live in per-batch files so
+   that several people can add them at once without editing the same file; each batch owns
+   a fixed id range and `index.ts` fails the build on a duplicate id. Do not append to
+   somebody else's batch — add a module and two lines to the index.
 3. Each defect needs a `family` (one of the six passes), a `signal` (loud / silent /
    mixed) and a `severity` (blocker / major / minor / nit). Those three fields drive the
    scoring, so they are not decoration.
+4. Update the counts in this README, or `npm run check` will fail — see `npm run stats`.
 
 The defect `body` is the part that teaches. State the mechanism, give a concrete failing
 input, and say what the operator sees — the same four-part shape the *Writing the finding*
-lesson asks the reader to produce.
+lesson asks the reader to produce. `docs/authoring.md` is the longer version: what makes a
+drill worth writing, and what each graded field means.
+
+Ids are permanent. Progress is stored against them, so a drill's id must never be reused
+or renumbered.
+
+A multi-file drill sets `files: [{ path, code }]` instead of a single `code`. Give it at
+least one unchanged file that the change breaks, and name it as unchanged in a comment —
+the point of the shape is that the reviewer has to look outside the diff.
 
 A new language needs three lines: the name in `Lang` (`src/types.ts`), the Prism grammar
 import and its mapping in `src/components/CodeBlock.tsx` (mind the order — `cpp` needs `c`,
@@ -152,11 +185,12 @@ lists, fenced code with a language, blockquotes, pipe tables, and inline `code` 
 src/
   content/
     samples/      the drill code, as real files in their real languages
-    drills.ts     drill metadata and the planted-defect analysis
+    drills/       drill metadata and the planted-defect analysis, one file per batch
+    reviews.ts    the model review write-up for each drill
     lessons.ts    course text
     gotchas.ts    language-specific reference
     passes.ts     the six passes
-  components/     CodeBlock (Prism + diff rendering), Markdown
+  components/     CodeBlock (Prism + diff rendering), DrillCode, Markdown
   views/          one file per route
   storage.ts      localStorage, with import/export and a defensive normaliser
   timed.ts        timed-session state, scoring and its own storage key
@@ -167,6 +201,9 @@ scripts/
   user-bus.sh     locates the systemd user session from a non-login shell
   smoke.mjs       static server + headless browser
   checks.mjs      the assertions
+  stats.mjs       content counts, and the README check
+docs/
+  authoring.md    what a drill has to be to be worth writing
 src-tauri/        the desktop shell
 ```
 
