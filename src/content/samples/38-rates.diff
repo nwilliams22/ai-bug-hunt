@@ -1,0 +1,43 @@
+--- a/src/money/rates.ts
++++ b/src/money/rates.ts
+@@
+ import { fetchRates } from "./gateway";
+
+ export interface Rates {
+   base: string;
+   quotes: Record<string, number>;
+   /** When the rates were struck, ms since epoch. */
+   asOf: number;
+ }
+
+-export async function getRates(base: string): Promise<Rates> {
+-  return fetchRates(base);
+-}
++const TTL_MS = 60_000;
++
++let cached: Rates | null = null;
++let refreshing = false;
++
++/**
++ * The current rates. Serves the cached copy while a refresh is already in
++ * flight, so two callers never wait on the gateway at the same time.
++ */
++export async function getRates(base: string): Promise<Rates> {
++  if (cached && Date.now() - cached.asOf < TTL_MS) {
++    return cached;
++  }
++
++  if (refreshing) {
++    return cached!;
++  }
++
++  refreshing = true;
++  const next = await fetchRates(base);
++  cached = next;
++  refreshing = false;
++  return next;
++}
+
+ export function convert(amount: number, to: string, rates: Rates): number {
+   return amount * (rates.quotes[to] ?? 1);
+ }

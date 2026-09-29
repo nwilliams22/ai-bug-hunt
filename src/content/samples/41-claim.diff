@@ -1,0 +1,24 @@
+--- a/db/queries/claim_jobs.sql
++++ b/db/queries/claim_jobs.sql
+@@
+ -- Claim the next batch of jobs for this worker.
+-SELECT id, payload
+-FROM jobs
+-WHERE status = 'queued'
+-ORDER BY created_at
+-LIMIT 10;
++WITH next AS (
++    SELECT id
++    FROM jobs
++    WHERE status = 'queued'
++      AND (locked_at IS NULL OR locked_at < NOW() - INTERVAL '5 minutes')
++    ORDER BY priority DESC, created_at
++    LIMIT 10
++)
++UPDATE jobs
++SET status    = 'running',
++    locked_by = :worker_id,
++    locked_at = NOW(),
++    attempts  = attempts + 1
++WHERE id IN (SELECT id FROM next)
++RETURNING id, payload;

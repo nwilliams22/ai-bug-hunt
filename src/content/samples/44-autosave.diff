@@ -1,0 +1,50 @@
+--- a/src/editor/DocumentEditor.jsx
++++ b/src/editor/DocumentEditor.jsx
+@@
+-import { useState } from "react";
++import { useEffect, useRef, useState } from "react";
+
+-export function DocumentEditor({ docId, initial }) {
+-  const [body, setBody] = useState(initial);
+-
+-  return <textarea value={body} onChange={(e) => setBody(e.target.value)} />;
+-}
++const AUTOSAVE_MS = 3000;
++
++export function DocumentEditor({ docId, initial }) {
++  const [body, setBody] = useState(initial);
++  const [savedAt, setSavedAt] = useState(null);
++  const dirty = useRef(false);
++
++  useEffect(() => {
++    const timer = setInterval(async () => {
++      if (!dirty.current) return;
++
++      await fetch(`/api/docs/${docId}`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ body }),
++      });
++
++      dirty.current = false;
++      setSavedAt(Date.now());
++    }, AUTOSAVE_MS);
++
++    return () => clearInterval(timer);
++  }, []);
++
++  return (
++    <>
++      <textarea
++        value={body}
++        onChange={(e) => {
++          dirty.current = true;
++          setBody(e.target.value);
++        }}
++      />
++      <span className="saved">
++        {savedAt ? `saved ${new Date(savedAt).toLocaleTimeString()}` : "unsaved"}
++      </span>
++    </>
++  );
++}

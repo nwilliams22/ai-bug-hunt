@@ -1,5 +1,6 @@
 import type { Drill } from "../../types";
 import { DRILLS_CORE } from "./core";
+import { DRILLS_BATCH_B } from "./batch-b";
 import { DRILLS_BATCH_C } from "./batch-c";
 
 /**
@@ -12,10 +13,11 @@ import { DRILLS_BATCH_C } from "./batch-c";
  * never be reused or renumbered. Each batch owns a fixed id range.
  *
  *   core.ts      1–30
+ *   batch-b.ts   31–45
  *   batch-c.ts   46–49
  *   (next batch) claim the next ten in the issue before you start
  */
-export const DRILLS: Drill[] = [...DRILLS_CORE, ...DRILLS_BATCH_C];
+export const DRILLS: Drill[] = [...DRILLS_CORE, ...DRILLS_BATCH_B, ...DRILLS_BATCH_C];
 
 const seen = new Set<number>();
 for (const d of DRILLS) {

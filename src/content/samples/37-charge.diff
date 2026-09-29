@@ -1,0 +1,36 @@
+--- a/billing/charges.py
++++ b/billing/charges.py
+@@
+ from decimal import Decimal
++import time
+
+ from billing import gateway
+ from billing.models import Charge
+
+
+-def charge_customer(customer_id: str, amount: Decimal) -> Charge:
+-    """Charge a customer and record the result."""
+-    result = gateway.charge(customer_id, amount)
++def charge_customer(customer_id: str, amount: Decimal, attempts: int = 3) -> Charge:
++    """Charge a customer and record the result.
++
++    The gateway is occasionally flaky, so a failure is retried with
++    exponential backoff before the charge is reported as failed.
++    """
++    last_error = None
++    for attempt in range(attempts):
++        try:
++            result = gateway.charge(customer_id, amount)
++            break
++        except gateway.GatewayError as exc:
++            last_error = exc
++            time.sleep(2 ** attempt)
++    else:
++        raise last_error
+
+     return Charge.objects.create(
+         customer_id=customer_id,
+         amount=amount,
+         reference=result.reference,
+         status=result.status,
+     )
