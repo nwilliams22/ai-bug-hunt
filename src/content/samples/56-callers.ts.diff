@@ -1,0 +1,13 @@
+--- a/callers.ts
++++ b/callers.ts
+@@ -1,8 +1,8 @@
+ import { put } from "./cache";
+ // These are the only writers; settings are valid nonnegative integers.
+ export function rememberSession(token: string, user: string) {
+-  put("session:" + token, user, 15 * 60 * 1000);
++  put("session:" + token, user, 15 * 60);
+ }
+ export function cacheSearch(query: string, result: string, ttl?: string) {
+-  put("search:" + query, result, (ttl === undefined ? 60 : Number(ttl)) * 1000);
++  put("search:" + query, result, ttl === undefined ? 60 : Number(ttl));
+ }

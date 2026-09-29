@@ -1,3 +1,4 @@
+import { ReviewReason } from "./DrillView";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DRILL_BY_ID } from "../content/drills";
 import { familyName } from "../content/passes";
@@ -397,7 +398,7 @@ function Debrief({
         <h2 className="card-h">Session recorded</h2>
         <div className="tiles">
           <div className="tile">
-            <b>{score.pct}%</b>
+            <b>{score.total ? `${score.pct}%` : "—"}</b>
             <span>
               {score.caught} of {score.total} defects
             </span>
@@ -446,7 +447,7 @@ function Debrief({
         </p>
         <div className="tiles">
           <div className="tile">
-            <b>{score.pct}%</b>
+            <b>{score.total ? `${score.pct}%` : "—"}</b>
             <span>
               {score.caught} of {score.total} ticked
             </span>
@@ -487,7 +488,8 @@ function Debrief({
               {(run.notes[id] ?? "").trim() || "— nothing —"}
             </blockquote>
 
-            <p className="label">Planted defects</p>
+            <ReviewReason id={id} />
+            <p className="label">{drill.defects.length ? "Answer findings" : "No defects to file — nothing to tick"}</p>
             {drill.defects.map((d, i) => (
               <div key={i} className="def" data-got={got.has(i) ? "1" : "0"}>
                 <div className="def-top">

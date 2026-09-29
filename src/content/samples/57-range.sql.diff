@@ -1,0 +1,8 @@
+--- a/report.sql
++++ b/report.sql
+@@ -1,4 +1,4 @@
+ SELECT COALESCE(SUM(gross_cents - refund_cents), 0) AS revenue_cents
+ FROM sales
+ WHERE sold_at >= :day_start
+-  AND sold_at <= :next_day_start;
++  AND sold_at < :next_day_start;

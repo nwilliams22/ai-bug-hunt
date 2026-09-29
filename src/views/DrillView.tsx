@@ -1,12 +1,82 @@
 import { useMemo } from "react";
 import { DRILLS, DRILL_BY_ID } from "../content/drills";
+import { CLEAN_REVIEW } from "../content/drills/batch-d";
 import { PASSES, familyName } from "../content/passes";
 import { DrillCode } from "../components/CodeBlock";
 import { ModelReviewCard } from "../components/ModelReview";
 import { href } from "../route";
-import type { Defect, DrillProgress } from "../types";
+import type { Defect, Drill, DrillProgress, Verdict } from "../types";
 
 const MIN_NOTE = 25;
+
+export function expectedVerdict(drill: Drill): Verdict {
+  return CLEAN_REVIEW[drill.id]?.verdict ??
+    (drill.defects.some((d) => d.severity === "blocker" || d.severity === "major")
+      ? "request-changes" : drill.defects.length ? "approve-with-comments" : "approve");
+}
+
+export interface Assessment {
+  verdict?: Verdict;
+  falsePositives?: number;
+}
+
+/** Self-assessment, not text matching: a correct verdict starts at 100. */
+export function calibrationScore(drill: Drill, assessment: Assessment): number | null {
+  if (assessment.verdict === undefined || assessment.falsePositives === undefined) return null;
+  return Math.max(0, (assessment.verdict === expectedVerdict(drill) ? 100 : 0)
+    - 25 * assessment.falsePositives);
+}
+
+export function VerdictChoice({ verdict, disabled, update }: {
+  verdict?: Verdict; disabled: boolean; update: (patch: Assessment) => void;
+}) {
+  return <label className="label">Your verdict
+    <select aria-label="Your verdict" value={verdict ?? ""} disabled={disabled}
+      onChange={(event) => update({ verdict: event.target.value as Verdict })}>
+      <option value="" disabled>Choose a verdict</option>
+      <option value="approve">Approve</option>
+      <option value="approve-with-comments">Approve with comments</option>
+      <option value="request-changes">Request changes</option>
+    </select>
+  </label>;
+}
+
+export function AssessmentResult({ drill, assessment, update }: {
+  drill: Drill; assessment: Assessment; update: (patch: Assessment) => void;
+}) {
+  const score = calibrationScore(drill, assessment);
+  return <div className="assessment">
+    <p>Committed verdict: {assessment.verdict?.replaceAll("-", " ") ?? "not recorded"}.
+      {assessment.verdict && (assessment.verdict === expectedVerdict(drill) ? " Correct." : " Incorrect.")}
+      {" "}Expected: {expectedVerdict(drill).replaceAll("-", " ")}.</p>
+    <label className="label">False-positive findings
+      <input aria-label="False-positive findings" type="number" min="0" step="1"
+        value={assessment.falsePositives ?? ""}
+        onChange={(event) => {
+          const value = event.target.valueAsNumber;
+          if (Number.isSafeInteger(value) && value >= 0) update({ falsePositives: value });
+        }} />
+    </label>
+    <p className="note">Count claims in your committed review that the evidence does not support,
+      including invented bugs. Enter 0 if none. A question about a missing contract is not
+      a false positive unless you asserted an unproven defect.</p>
+    <p className="calibration-score">Review calibration: {score === null ? "— (assessment not recorded)" : `${score}/100`}</p>
+    <p className="note">A correct verdict earns 100; an incorrect verdict earns 0. Each false
+      finding subtracts 25, with a floor of 0. This self-assessed score is separate from
+      defect recall. It does not grade your prose automatically.</p>
+  </div>;
+}
+
+export function ReviewReason({ id }: { id: number }) {
+  const review = CLEAN_REVIEW[id];
+  if (!review) return null;
+  return <div className="review-reason">
+    <p className="rev-h">Expected verdict: {review.verdict.replaceAll("-", " ")}</p>
+    <p>{review.reason}</p>
+    <p className="note">Compare drill {review.mistakenFor}. A false finding costs the author time
+      and the reviewer credibility. A familiar shape is a reason to investigate, not proof.</p>
+  </div>;
+}
 
 const SIGNAL_LABEL: Record<Defect["signal"], string> = {
   loud: "fails loudly",
@@ -47,7 +117,7 @@ export function DrillView({ id, state, update }: Props) {
   }
 
   const noteLen = state.note.trim().length;
-  const canReveal = noteLen >= MIN_NOTE;
+  const canReveal = noteLen >= MIN_NOTE && state.verdict !== undefined;
 
   return (
     <>
@@ -57,7 +127,7 @@ export function DrillView({ id, state, update }: Props) {
           <Badge kind="level">{drill.level}</Badge>
           {drill.shape === "diff" && <Badge kind="shape">diff review</Badge>}
           <span className="meta-note">
-            {drill.defects.length} defect{drill.defects.length === 1 ? "" : "s"} planted
+            {state.revealed ? `${drill.defects.length} findings in the answer` : "Approve or identify justified findings"}
           </span>
         </div>
 
@@ -85,12 +155,13 @@ export function DrillView({ id, state, update }: Props) {
 
         <p className="label">What did you find?</p>
         <p className="note">
-          For each defect: name the mechanism, give a concrete failing input, and say
-          whether it fails loudly or silently.
+          For each finding, name the mechanism and evidence. If you approve, explain how
+          you discharged your suspicions. Ask a question when a necessary contract is unknown.
         </p>
         <textarea
           className="ta"
           value={state.note}
+          readOnly={state.revealed}
           onChange={(e) => update({ note: e.target.value })}
           placeholder={
             state.revealed
@@ -99,6 +170,7 @@ export function DrillView({ id, state, update }: Props) {
           }
         />
 
+        <VerdictChoice verdict={state.verdict} disabled={state.revealed} update={update} />
         <div className="bar">
           <button
             className="btn"
@@ -117,12 +189,12 @@ export function DrillView({ id, state, update }: Props) {
           )}
           {!canReveal && !state.revealed && (
             <span className="gate">
-              Write your review first — {Math.max(0, MIN_NOTE - noteLen)} more characters.
+              {noteLen < MIN_NOTE ? `Write your review first — ${MIN_NOTE - noteLen} more characters.` : "Choose a verdict before reveal."}
             </span>
           )}
           {state.revealed && (
             <span className="gate">
-              {caughtCount} of {drill.defects.length} ticked
+              {drill.defects.length ? `${caughtCount} of ${drill.defects.length} ticked` : "No findings to tick"}
             </span>
           )}
         </div>
@@ -134,18 +206,20 @@ export function DrillView({ id, state, update }: Props) {
         )}
         {state.hintLevel >= 2 && !state.revealed && (
           <div className="hint">
-            <b>Families in play.</b> {drill.hintFamily}
+            <b>Passes to consider.</b> {drill.hintFamily}
           </div>
         )}
 
         {state.revealed && (
           <div className="rev">
-            <p className="rev-h">Planted defects</p>
-            <p className="rev-n">
+            <AssessmentResult drill={drill} assessment={state} update={update} />
+            <ReviewReason id={id} />
+            <p className="rev-h">{drill.defects.length ? "Answer findings" : "No defects to file"}</p>
+            {drill.defects.length > 0 && <p className="rev-n">
               Tick the ones you actually named in your notes. Partial credit doesn't help
               you — if you gestured at the area without identifying the mechanism, leave it
               unticked.
-            </p>
+            </p>}
             {drill.defects.map((d, i) => (
               <div key={i} className="def" data-got={state.caught[i] ? "1" : "0"}>
                 <div className="def-top">

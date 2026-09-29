@@ -527,6 +527,141 @@ export async function run(cdpBase) {
   check("due set recomputes from stored attempts after reload",
     (await evalJs(`document.body.textContent`)).includes("1 due now"));
 
+  /* --------------------- clean and proportionate reviews ------------------ */
+
+  const chooseVerdict = (value) => evalJs(`(() => {
+    const select = document.querySelector('select[aria-label="Your verdict"]');
+    if (!select) return false;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, ${JSON.stringify(value)});
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const falseFindings = (value) => evalJs(`(() => {
+    const input = document.querySelector('input[aria-label="False-positive findings"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(String(value))});
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  const progressKey = 'bug-finder:progress:v1';
+  await evalJs(`localStorage.clear(); location.hash = '#/drill/50'`);
+  await send('Page.reload');
+  await sleep(900);
+  check('clean drill renders without disclosing its answer',
+    (await evalJs(`document.querySelector('.card-h').textContent`)).includes('Validate token expiry') &&
+    (await evalJs(`document.querySelectorAll('.review-reason, .assessment, .def').length`)) === 0 &&
+    !(await evalJs(`document.querySelector('.meta-note').textContent`)).includes('0'));
+  check('clean reveal starts gated', (await evalJs(`document.querySelector('button.btn').disabled`)) === true);
+  await click('Hint');
+  await sleep(100);
+  await click('Hint');
+  await sleep(100);
+  check('clean hints describe investigation without inventing defects',
+    (await evalJs(`document.querySelectorAll('.hint').length`)) === 2 &&
+    (await evalJs(`document.querySelectorAll('.hint')[1].textContent`)).includes('establish whether'));
+  await type('Both instants are aware and compared in UTC; equality expires the token.');
+  await sleep(150);
+  check('a written clean review still requires a verdict', (await evalJs(`document.querySelector('button.btn').disabled`)) === true);
+  await chooseVerdict('approve');
+  await sleep(150);
+  check('explicit approval unlocks a clean reveal', (await evalJs(`document.querySelector('button.btn').disabled`)) === false);
+  await click('Lock in and reveal');
+  await sleep(200);
+  check('zero-defect reveal has reasoning and no caught boxes',
+    (await evalJs(`document.querySelectorAll('.def input').length`)) === 0 &&
+    (await evalJs(`document.body.textContent`)).includes('No findings to tick') &&
+    (await evalJs(`document.querySelector('.review-reason').textContent`)).includes('Expected verdict: approve'));
+  check('reveal locks verdict and the evidence used for self-assessment',
+    (await evalJs(`document.querySelector('select[aria-label="Your verdict"]').disabled`)) === true &&
+    (await evalJs(`document.querySelector('.ta').readOnly`)) === true);
+  check('unrecorded false-positive assessment is not a perfect score',
+    (await evalJs(`document.querySelector('.calibration-score').textContent`)).includes('assessment not recorded'));
+  await falseFindings(3);
+  await sleep(150);
+  check('three false findings lower a correct verdict to 25 points',
+    (await evalJs(`document.querySelector('.calibration-score').textContent`)).includes('25/100'));
+  await send('Page.reload');
+  await sleep(900);
+  check('verdict and false-positive cost survive reload',
+    (await evalJs(`JSON.parse(localStorage.getItem('${progressKey}')).drills[50].verdict`)) === 'approve' &&
+    (await evalJs(`document.querySelector('input[aria-label="False-positive findings"]').value`)) === '3' &&
+    (await evalJs(`document.querySelector('.calibration-score').textContent`)).includes('25/100'));
+  await evalJs(`location.hash = '#/progress'`);
+  await sleep(200);
+  check('clean-only progress has no missed blocker or fabricated 0% family',
+    (await evalJs(`document.querySelector('.tile b').textContent`)) === '—' &&
+    (await evalJs(`document.querySelectorAll('.fam-row').length`)) === 0 &&
+    (await evalJs(`document.body.textContent`)).includes('blockers missed of 0') &&
+    (await evalJs(`document.querySelectorAll('.tile b')[3].textContent`)) === '0');
+  check('progress retains the false-positive cost separately from recall',
+    (await evalJs(`document.querySelector('[aria-label="Review calibration"]').textContent`)).includes('25/100') &&
+    (await evalJs(`document.querySelector('[aria-label="Review calibration"]').textContent`)).includes('3self-assessed false positives'));
+
+  // Exercise every answer, including the two proportionate comments.
+  for (let id = 51; id <= 59; id++) {
+    await evalJs(`location.hash = '#/drill/${id}'`);
+    await sleep(150);
+    await type('I traced the contract, ownership, boundary and failure cases before deciding.');
+    await chooseVerdict(id >= 58 ? 'approve-with-comments' : id === 51 ? 'request-changes' : 'approve');
+    await sleep(100);
+    await click('Lock in and reveal');
+    await sleep(100);
+    await falseFindings(0);
+    await sleep(100);
+    check(`drill ${id} reveals its expected verdict and proportionate findings`,
+      (await evalJs(`document.querySelectorAll('.def').length`)) === (id >= 58 ? 1 : 0) &&
+      (await evalJs(`document.querySelector('.review-reason').textContent`)).includes(
+        id >= 58 ? 'Expected verdict: approve with comments' : 'Expected verdict: approve'));
+    if (id === 51) check('requesting changes on clean code earns zero calibration',
+      (await evalJs(`document.querySelector('.calibration-score').textContent`)).includes('0/100'));
+    if (id === 56) check('clean multi-file diff exposes the unchanged caller',
+      (await evalJs(`document.querySelectorAll('.drill-file').length`)) === 3 &&
+      (await evalJs(`document.querySelector('[aria-label="reader.ts"]').textContent`)).includes('get('));
+    if (id === 59) check('unstated precondition is taught as a question, not an asserted bug',
+      (await evalJs(`document.querySelector('.def-t').textContent`)).startsWith('Question:') &&
+      (await evalJs(`document.querySelector('.review-reason').textContent`)).includes('no evidence of an unsorted production input'));
+  }
+
+  // A clean review must leave every defect-based aggregate unchanged.
+  const aggregateTiles = () => evalJs(`JSON.stringify({
+    tiles: [...document.querySelectorAll('.tiles:first-of-type .tile')].filter((_, i) => i !== 1).map(el => el.textContent),
+    families: [...document.querySelectorAll('.fam-row')].map(el => el.textContent)
+  })`);
+  await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
+    drills: {8: {note: 'A prior defective review with missed blockers', revealed: true, hintLevel: 0, caught: {}}},
+    reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/progress'`);
+  await send('Page.reload');
+  await sleep(900);
+  const beforeClean = await aggregateTiles();
+  await evalJs(`(() => { const p = JSON.parse(localStorage.getItem('${progressKey}'));
+    p.drills[50] = {note: 'Both timestamps were checked and converted', revealed: true, hintLevel: 0, caught: {}, verdict: 'approve', falsePositives: 0};
+    localStorage.setItem('${progressKey}', JSON.stringify(p)); })()`);
+  await send('Page.reload');
+  await sleep(900);
+  check('adding clean review neither dilutes nor inflates recall, families or missed blockers',
+    beforeClean === await aggregateTiles());
+
+  await evalJs(`localStorage.clear(); localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
+    startedAt: Date.now() - 20000, secondsPerDrill: 60, drillIds: [50, 51], at: 2,
+    drillStartedAt: Date.now(), notes: {50: 'Approved after checking UTC conversion', 51: 'Approved after tracing copy ownership'},
+    spent: {50: 10, 51: 10}, phase: 'debrief', caught: {}
+  })); location.hash = '#/timed'`);
+  await send('Page.reload');
+  await sleep(900);
+  check('all-clean timed debrief has no ticks, misses, or 0% recall',
+    (await evalJs(`document.querySelector('.tile b').textContent`)) === '—' &&
+    (await evalJs(`document.querySelectorAll('.def').length`)) === 0 &&
+    (await evalJs(`document.querySelectorAll('.review-reason').length`)) === 2 &&
+    (await evalJs(`document.body.textContent`)).includes('blockers missed of 0'));
+  await click('Record this session');
+  await sleep(200);
+  check('recorded clean timed session still displays no recall denominator',
+    (await evalJs(`document.querySelector('.tile b').textContent`)) === '—');
+  await evalJs(`location.hash = '#/progress'`);
+  await sleep(200);
+  check('clean timed history displays a dash and remains unassessed for verdicts',
+    (await evalJs(`document.querySelector('.plain-list li b').textContent`)) === '—' &&
+    (await evalJs(`document.querySelector('[aria-label="Review calibration"]').textContent`)).includes('0 recorded verdicts') &&
+    (await evalJs(`document.querySelectorAll('.fam-row').length`)) === 0);
+
   /* ------------------------------ console -------------------------------- */
 
   await sleep(300);

@@ -4,6 +4,7 @@ import { LESSONS } from "../content/lessons";
 import { PASSES } from "../content/passes";
 import { drillState, empty, exportFile, normalise } from "../storage";
 import { mmss, scoreRun } from "../timed";
+import { calibrationScore, expectedVerdict } from "./DrillView";
 import { href } from "../route";
 import type { FamilyId, Progress } from "../types";
 
@@ -11,10 +12,15 @@ export interface Stats {
   reviewed: number;
   hit: number;
   total: number;
-  pct: number;
+  pct: number | null;
   byFamily: Record<FamilyId, { hit: number; total: number }>;
   blockersMissed: number;
   blockersTotal: number;
+  verdicts: number;
+  correctVerdicts: number;
+  assessed: number;
+  calibration: number | null;
+  falsePositives: number;
 }
 
 export function computeStats(p: Progress): Stats {
@@ -27,11 +33,25 @@ export function computeStats(p: Progress): Stats {
   let total = 0;
   let blockersMissed = 0;
   let blockersTotal = 0;
+  let verdicts = 0;
+  let correctVerdicts = 0;
+  let assessed = 0;
+  let calibration = 0;
+  let falsePositives = 0;
 
   for (const d of DRILLS) {
     const st = drillState(p, d.id);
     if (!st.revealed) continue;
     reviewed += 1;
+    for (const attempt of [st, ...(p.reviews[d.id] ?? [])]) {
+      if (attempt.verdict !== undefined) {
+        verdicts += 1;
+        if (attempt.verdict === expectedVerdict(d)) correctVerdicts += 1;
+      }
+      falsePositives += attempt.falsePositives ?? 0;
+      const score = calibrationScore(d, attempt);
+      if (score !== null) { assessed += 1; calibration += score; }
+    }
     d.defects.forEach((def, i) => {
       const got = !!st.caught[i];
       total += 1;
@@ -51,10 +71,15 @@ export function computeStats(p: Progress): Stats {
     reviewed,
     hit,
     total,
-    pct: total ? Math.round((hit / total) * 100) : 0,
+    pct: total ? Math.round((hit / total) * 100) : null,
     byFamily,
     blockersMissed,
     blockersTotal,
+    verdicts,
+    correctVerdicts,
+    assessed,
+    calibration: assessed ? Math.round(calibration / assessed) : null,
+    falsePositives,
   };
 }
 
@@ -119,11 +144,21 @@ export function ProgressView({ progress, stats, replace }: Props) {
         </div>
       </div>
 
+      <div className="tiles" aria-label="Review calibration">
+        <div className="tile"><b>{stats.verdicts ? `${Math.round(100 * stats.correctVerdicts / stats.verdicts)}%` : "—"}</b>
+          <span>{stats.correctVerdicts} of {stats.verdicts} recorded verdicts correct</span></div>
+        <div className="tile"><b>{stats.calibration === null ? "—" : `${stats.calibration}/100`}</b>
+          <span>calibration across {stats.assessed} assessed attempts</span></div>
+        <div className="tile"><b>{stats.falsePositives}</b><span>self-assessed false positives</span></div>
+      </div>
+      <p className="note">Original and repeat verdicts are scored per attempt. Older and timed attempts
+        without a verdict or false-positive assessment are not recorded, not counted as successes.</p>
       <p className="note">
-        The blocker count is the one that matters. A missed nit costs nothing; a missed
-        blocker is the defect that reaches production.
+        A missed blocker can reach production. A false finding costs the author time and
+        the reviewer credibility. Clean samples add no defects or blockers to the denominators.
       </p>
 
+      {families.length === 0 && <p className="note">Pass hit rates: — (no findings to score).</p>}
       {families.length > 0 && (
         <>
           <h3 className="sec-h">By pass — weakest first</h3>
@@ -179,7 +214,7 @@ export function ProgressView({ progress, stats, replace }: Props) {
                   <li key={s.id}>
                     {new Date(s.startedAt).toLocaleDateString()} —{" "}
                     {s.drillIds.length} samples at {mmss(s.secondsPerDrill)},{" "}
-                    <b>{sc.pct}%</b>{" "}
+                    <b>{sc.total ? `${sc.pct}%` : "—"}</b>{" "}
                     <span className="practice-lang">
                       {sc.blockersTotal - sc.blockersCaught} of {sc.blockersTotal} blockers
                       missed
