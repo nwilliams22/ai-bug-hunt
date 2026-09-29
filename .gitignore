@@ -4,6 +4,10 @@ dist/
 .DS_Store
 .vite/
 
+# Agent working notes, left in the root by a task and not part of the course.
+# Delete this line if the project ever wants a tracked PLAN.md of its own.
+/PLAN.md
+
 # Rust / Tauri build output. Cargo.lock is committed: this is a binary.
 src-tauri/target/
 src-tauri/gen/
