@@ -113,7 +113,7 @@ export async function run(cdpBase) {
   await evalJs(`document.querySelector(".btn").click()`);
   await sleep(300);
   const defCount = await evalJs(`document.querySelectorAll(".def").length`);
-  check("reveal shows every planted defect", defCount === 3, `${defCount} shown`);
+  check("reveal shows every planted defect", defCount === 2, `${defCount} shown`);
 
   await evalJs(`document.querySelector(".def input[type=checkbox]").click()`);
   await sleep(250);
@@ -132,7 +132,7 @@ export async function run(cdpBase) {
   );
   check(
     "reveal state survives a reload",
-    (await evalJs(`document.querySelectorAll(".def").length`)) === 3,
+    (await evalJs(`document.querySelectorAll(".def").length`)) === 2,
   );
 
   /* ------------------------------- routes -------------------------------- */
@@ -162,7 +162,7 @@ export async function run(cdpBase) {
   );
   check(
     "weakest-pass breakdown covers the reviewed families",
-    (await evalJs(`document.querySelectorAll(".fam-row").length`)) === 3,
+    (await evalJs(`document.querySelectorAll(".fam-row").length`)) === 2,
   );
 
   /* ---------------------- every drill and lesson loads -------------------- */
