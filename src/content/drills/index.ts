@@ -2,6 +2,7 @@ import type { Drill } from "../../types";
 import { DRILLS_CORE } from "./core";
 import { DRILLS_BATCH_B } from "./batch-b";
 import { DRILLS_BATCH_C } from "./batch-c";
+import { DRILLS_BATCH_D } from "./batch-d";
 
 /**
  * Drills live in per-batch modules so that several people can add drills at the
@@ -17,7 +18,7 @@ import { DRILLS_BATCH_C } from "./batch-c";
  *   batch-c.ts   46–49
  *   (next batch) claim the next ten in the issue before you start
  */
-export const DRILLS: Drill[] = [...DRILLS_CORE, ...DRILLS_BATCH_B, ...DRILLS_BATCH_C];
+export const DRILLS: Drill[] = [...DRILLS_CORE, ...DRILLS_BATCH_B, ...DRILLS_BATCH_C, ...DRILLS_BATCH_D];
 
 const seen = new Set<number>();
 for (const d of DRILLS) {
