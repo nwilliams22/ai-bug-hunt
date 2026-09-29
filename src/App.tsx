@@ -3,8 +3,8 @@ import { LESSONS, MODULES } from "./content/lessons";
 import { DRILLS } from "./content/drills";
 import { GOTCHA_LANGS } from "./content/gotchas";
 import { href, useRoute } from "./route";
-import { drillState, load, save } from "./storage";
-import type { DrillProgress, Progress } from "./types";
+import { drillState, load, save, updateAttemptAssessment } from "./storage";
+import type { DrillProgress, Progress, Verdict } from "./types";
 import { HomeView, DrillTable } from "./views/HomeView";
 import { LessonView } from "./views/LessonView";
 import { DrillView } from "./views/DrillView";
@@ -27,13 +27,14 @@ export default function App() {
   const stats = useMemo(() => computeStats(progress), [progress]);
   const dueCount = dueReviews(progress).length;
 
-  const completeReview = useCallback((id: number, note: string) => {
+  const completeReview = useCallback((id: number, note: string, verdict?: Verdict) => {
     if (note.trim().length < 25) return;
     setProgress((p) => {
       if (!dueReviews(p).some((entry) => entry.drill.id === id)) return p;
       if (p.reviews[id]?.at(-1)?.scored === false) return p;
       return { ...p, reviews: { ...p.reviews,
-        [id]: [...(p.reviews[id] ?? []), { note, revealedAt: Date.now(), caught: {}, scored: false }] } };
+        [id]: [...(p.reviews[id] ?? []), { note, revealedAt: Date.now(), caught: {}, scored: false,
+          verdict }] } };
     });
   }, []);
 
@@ -41,6 +42,7 @@ export default function App() {
     setProgress((p) => {
       const attempts = p.reviews[id];
       if (!attempts?.length) return p;
+      if (attempts[attempts.length - 1].falsePositives === undefined) return p;
       return { ...p, reviews: { ...p.reviews, [id]: [
         ...attempts.slice(0, -1), { ...attempts[attempts.length - 1], scored: true },
       ] } };
@@ -57,6 +59,12 @@ export default function App() {
           ...attempts[attempts.length - 1].caught, [index]: caught } },
       ] } };
     });
+  }, []);
+
+  const assessReview = useCallback((id: number, patch: {
+    verdict?: Verdict; falsePositives?: number;
+  }) => {
+    setProgress((p) => updateAttemptAssessment(p, id, (p.reviews[id]?.length ?? 0) + 1, patch));
   }, []);
 
   const updateDrill = useCallback((id: number, patch: Partial<DrillProgress>) => {
@@ -153,7 +161,7 @@ export default function App() {
 
           {route.view === "review" && <ReviewView key={route.id ?? "queue"}
             id={route.id} progress={progress} complete={completeReview} mark={markReview}
-            finish={finishReview} />}
+            assess={assessReview} finish={finishReview} />}
 
           {route.view === "progress" && (
             <ProgressView progress={progress} stats={stats} replace={setProgress} />

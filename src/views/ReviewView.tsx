@@ -3,18 +3,21 @@ import { DrillCode } from "../components/CodeBlock";
 import { familyName } from "../content/passes";
 import { dueReviews, reviewSchedule } from "../review";
 import { href } from "../route";
-import type { Progress } from "../types";
+import { AssessmentResult, ReviewReason, VerdictChoice, calibrationScore } from "./DrillView";
+import type { Progress, Verdict } from "../types";
 
 interface Props {
   progress: Progress;
   id?: number;
-  complete: (id: number, note: string) => void;
+  complete: (id: number, note: string, verdict?: Verdict) => void;
   mark: (id: number, index: number, caught: boolean) => void;
+  assess: (id: number, patch: { verdict?: Verdict; falsePositives?: number }) => void;
   finish: (id: number) => void;
 }
 
-export function ReviewView({ progress, id, complete, mark, finish }: Props) {
+export function ReviewView({ progress, id, complete, mark, assess, finish }: Props) {
   const [note, setNote] = useState("");
+  const [verdict, setVerdict] = useState<Verdict | "">("");
   const [opened, setOpened] = useState(false);
   const due = dueReviews(progress);
   const entry = due.find((item) => item.drill.id === id);
@@ -49,20 +52,26 @@ export function ReviewView({ progress, id, complete, mark, finish }: Props) {
     <DrillCode drill={drill} />
     <p className="label">What did you find this time?</p>
     {!revealed ? <>
+      <VerdictChoice verdict={verdict || undefined} disabled={false} update={(patch) =>
+        setVerdict(patch.verdict ?? "")} />
       <textarea className="ta" value={note} onChange={(event) => setNote(event.target.value)}
         placeholder="Name the mechanism, a failing input, and its effect." />
       <div className="bar">
-        <button className="btn" disabled={note.trim().length < 25}
-          onClick={() => { complete(drill.id, note.trim()); setOpened(true); }}>
+        <button className="btn" disabled={note.trim().length < 25 || !verdict}
+          onClick={() => { complete(drill.id, note.trim(), verdict || undefined); setOpened(true); }}>
           Lock in and reveal
         </button>
         {note.trim().length < 25 && <span className="gate">Write your review first — {25 - note.trim().length} more characters.</span>}
       </div>
     </> : <>
       <blockquote className="wrote">{last.note}</blockquote>
+      <AssessmentResult drill={drill} assessment={last} update={(patch) =>
+        assess(drill.id, patch)} />
+      <ReviewReason id={drill.id} />
       <div className="rev">
         <p className="rev-h">Planted defects</p>
         <p className="rev-n">Tick only the findings you named before reveal. This score belongs to this attempt.</p>
+        {drill.defects.length === 0 && <p>No planted defects in this drill.</p>}
         {drill.defects.map((defect, index) => <div className="def" key={index}
           data-got={last.caught[index] ? "1" : "0"}>
           <div className="def-top"><span className="def-fam">{familyName(defect.family)} · {defect.severity}</span>
@@ -73,7 +82,8 @@ export function ReviewView({ progress, id, complete, mark, finish }: Props) {
           <div className="def-f">{defect.fix}</div>
         </div>)}
       </div>
-      <button className="btn" onClick={() => { finish(drill.id); setOpened(false); }}>
+      <button className="btn" disabled={last.falsePositives === undefined}
+        onClick={() => { finish(drill.id); setOpened(false); }}>
         Finish scoring
       </button>
     </>}
@@ -82,7 +92,12 @@ export function ReviewView({ progress, id, complete, mark, finish }: Props) {
       <ol className="lesson-list">
         {[progress.drills[drill.id], ...attempts].map((attempt, index) => {
           const caught = drill.defects.filter((_, i) => attempt.caught[i]).length;
-          return <li key={index}>Attempt {index + 1}: {caught}/{drill.defects.length} caught
+          return <li key={index}>Attempt {index + 1}: {drill.defects.length
+            ? `${caught}/${drill.defects.length} caught` : "clean drill"}
+            {attempt.falsePositives ? ` · ${attempt.falsePositives} false positive${attempt.falsePositives === 1 ? "" : "s"}` : ""}
+            {attempt.verdict ? ` · ${attempt.verdict}` : ""}
+            {calibrationScore(drill, attempt) !== null
+              ? ` · calibration ${calibrationScore(drill, attempt)}/100` : " · calibration not recorded"}
             {attempt.revealedAt ? ` · ${new Date(attempt.revealedAt).toLocaleDateString()}` : ""}
             <span className="lesson-blurb">{attempt.note}</span>
           </li>;

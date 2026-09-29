@@ -137,6 +137,10 @@ export interface DrillProgress {
   caught: Record<number, boolean>;
   /** ms epoch of the reveal, for the review queue. */
   revealedAt?: number;
+  /** The reviewer's verdict before seeing the answer, when recorded. */
+  verdict?: Verdict;
+  /** Self-assessed findings that were not planted defects. */
+  falsePositives?: number;
 }
 
 /** One completed repeat; the original answer remains in DrillProgress. */
@@ -146,6 +150,8 @@ export interface ReviewAttempt {
   caught: Record<number, boolean>;
   /** The answer has been shown, but scoring may still be in progress. */
   scored: boolean;
+  verdict?: Verdict;
+  falsePositives?: number;
 }
 
 /** One finished timed review, kept for the history on the progress page. */

@@ -108,6 +108,9 @@ export async function run(cdpBase) {
       return true;
     })()
   `);
+  await evalJs(`(() => { const select = document.querySelector('select[aria-label="Your verdict"]');
+    select.value = 'request-changes'; select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
   await sleep(250);
   check(
     "reveal unlocks once the review is long enough",
@@ -449,6 +452,12 @@ export async function run(cdpBase) {
         hintLevel: 0, caught: { 0: true, 1: true }, revealedAt: Date.now() - 5 * 86400000 },
       8: { note: "Missed both blockers in the original review", revealed: true,
         hintLevel: 0, caught: {}, revealedAt: Date.now() - 2 * 86400000 },
+      50: { note: "I checked each boundary and found no defect", revealed: true,
+        hintLevel: 0, caught: {}, verdict: "approve", falsePositives: 0,
+        revealedAt: Date.now() - 2 * 86400000 },
+      51: { note: "I reported two findings that were not defects", revealed: true,
+        hintLevel: 0, caught: {}, verdict: "request-changes", falsePositives: 2,
+        revealedAt: Date.now() - 2 * 86400000 },
     }, lessonsRead: {}, sessions: [] };
     localStorage.setItem("bug-finder:progress:v1", JSON.stringify(old));
     location.hash = "#/";
@@ -458,14 +467,21 @@ export async function run(cdpBase) {
   check("old progress imports with its first attempt intact",
     (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).version`)) === 3 &&
     (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).drills[1].caught[0]`)) === true);
+  check("attempt assessment survives import normalization",
+    (await evalJs(`(() => { const p = JSON.parse(localStorage.getItem("bug-finder:progress:v1"));
+      return p.drills[50].verdict === "approve" && p.drills[51].falsePositives === 2;
+    })()`)) === true);
   check("due count is visible on the landing page",
-    (await evalJs(`document.querySelector('.bar a[href="#/review"]')?.textContent ?? ""`)).includes("1 due"));
+    (await evalJs(`document.querySelector('.bar a[href="#/review"]')?.textContent ?? ""`)).includes("2 due"));
 
   await evalJs(`location.hash = "#/review"`);
   await sleep(300);
   check("bad outcomes become due sooner than clean outcomes",
     (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/8"]').length`)) === 1 &&
     (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/1"]').length`)) === 0);
+  check("clean drills avoid an automatic one-day interval while false positives return",
+    (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/50"]').length`)) === 0 &&
+    (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/51"]').length`)) === 1);
 
   await evalJs(`location.hash = "#/review/8"`);
   await sleep(350);
@@ -474,6 +490,9 @@ export async function run(cdpBase) {
     (await evalJs(`document.querySelector('button.btn')?.disabled`)) === true &&
     (await evalJs(`document.body.textContent`)).includes("Attempt history") === false);
   await type("I found both blockers this time, with a concrete failing input for each.");
+  await evalJs(`(() => { const select = document.querySelector('select[aria-label="Your verdict"]');
+    select.value = 'request-changes'; select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
   await sleep(200);
   check("writing unlocks repeat reveal",
     (await evalJs(`document.querySelector('button.btn')?.disabled`)) === false);
@@ -481,7 +500,8 @@ export async function run(cdpBase) {
   await sleep(350);
   check("repeat reveal exposes independent scoring",
     (await evalJs(`document.querySelectorAll('.def').length`)) > 0 &&
-    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).reviews[8].length`)) === 1);
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).reviews[8].length`)) === 1 &&
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).reviews[8][0].verdict`)) === "request-changes");
   await evalJs(`document.querySelector('.def input[type=checkbox]').click()`);
   await sleep(250);
   check("repeat score does not overwrite first attempt",
@@ -493,12 +513,19 @@ export async function run(cdpBase) {
   check("unfinished scoring resumes after reload",
     (await evalJs(`document.querySelectorAll('.def').length`)) > 0 &&
     (await evalJs(`document.querySelector('button.btn')?.textContent ?? ""`)).includes("Finish scoring"));
+  check("unassessed repeat cannot finish as a perfect score",
+    (await evalJs(`document.querySelector('button.btn')?.disabled`)) === true);
+  await evalJs(`(() => { const input = document.querySelector('input[aria-label="False-positive findings"]');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(input, '0'); input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await sleep(200);
   await click("Finish scoring");
   await sleep(250);
   await evalJs(`location.hash = "#/review"`);
   await sleep(300);
   check("due set recomputes from stored attempts after reload",
-    (await evalJs(`document.body.textContent`)).includes("0 due now"));
+    (await evalJs(`document.body.textContent`)).includes("1 due now"));
 
   /* ------------------------------ console -------------------------------- */
 

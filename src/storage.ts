@@ -1,4 +1,4 @@
-import type { Progress, DrillProgress, ReviewAttempt, TimedSession } from "./types";
+import type { Progress, DrillProgress, ReviewAttempt, TimedSession, Verdict } from "./types";
 
 // The key is deliberately still v1: the shape only ever gained fields, and
 // normalise() fills them in, so a store written by an earlier build loads
@@ -25,6 +25,16 @@ function normaliseCaught(input: unknown): Record<number, boolean> {
     }
   }
   return caught;
+}
+
+function normaliseVerdict(value: unknown): Verdict | undefined {
+  return value === "approve" || value === "approve-with-comments" || value === "request-changes"
+    ? value : undefined;
+}
+
+function normaliseFalsePositives(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value : undefined;
 }
 
 export function load(): Progress {
@@ -71,6 +81,8 @@ export function normalise(input: unknown): Progress {
           typeof d.hintLevel === "number" ? Math.max(0, Math.min(2, d.hintLevel)) : 0,
         caught: normaliseCaught(d.caught),
         revealedAt: typeof d.revealedAt === "number" ? d.revealedAt : undefined,
+        verdict: normaliseVerdict(d.verdict),
+        falsePositives: normaliseFalsePositives(d.falsePositives),
       };
     }
   }
@@ -87,7 +99,9 @@ export function normalise(input: unknown): Progress {
         if (typeof attempt.note !== "string" || attempt.note.trim().length < 25 ||
             typeof attempt.revealedAt !== "number" || !Number.isFinite(attempt.revealedAt)) continue;
         attempts.push({ note: attempt.note, revealedAt: attempt.revealedAt,
-          caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false });
+          caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false,
+          verdict: normaliseVerdict(attempt.verdict),
+          falsePositives: normaliseFalsePositives(attempt.falsePositives) });
       }
       if (attempts.length) out.reviews[id] = attempts;
     }
@@ -153,6 +167,29 @@ function normaliseSession(input: unknown): TimedSession | null {
 
 export function drillState(p: Progress, id: number): DrillProgress {
   return p.drills[id] ?? EMPTY_DRILL;
+}
+
+/** Attempt 1 is the original drill; attempts 2+ are repeats. */
+export function updateAttemptAssessment(
+  progress: Progress, id: number, attempt: number,
+  patch: { verdict?: Verdict; falsePositives?: number },
+): Progress {
+  const assessment = {
+    ...(patch.verdict === undefined ? {} : { verdict: normaliseVerdict(patch.verdict) }),
+    ...(patch.falsePositives === undefined ? {} : {
+      falsePositives: normaliseFalsePositives(patch.falsePositives),
+    }),
+  };
+  if (attempt === 1) {
+    const original = progress.drills[id];
+    if (!original) return progress;
+    return { ...progress, drills: { ...progress.drills, [id]: { ...original, ...assessment } } };
+  }
+  const repeats = progress.reviews[id];
+  const index = attempt - 2;
+  if (!repeats || !Number.isInteger(index) || index < 0 || index >= repeats.length) return progress;
+  return { ...progress, reviews: { ...progress.reviews, [id]: repeats.map((item, i) =>
+    i === index ? { ...item, ...assessment } : item) } };
 }
 
 export function exportFile(p: Progress): void {
