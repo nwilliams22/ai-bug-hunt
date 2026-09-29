@@ -1,0 +1,10 @@
+ export async function getUser(id: string): Promise<User | null> {
+-  return db.users.findById(id);
++  const cached = cache.get(id);
++  if (cached) {
++    return cached;
++  }
++  const user = await db.users.findById(id);
++  cache.set(id, user);
++  return user;
+ }

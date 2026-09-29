@@ -1,0 +1,10 @@
+ def merge_configs(base, override):
+     """Merge override into base and return the result."""
+     result = base.copy()
+-    result.update(override)
++    for key, value in override.items():
++        if isinstance(value, dict) and isinstance(result.get(key), dict):
++            result[key] = merge_configs(result[key], value)
++        else:
++            result[key] = value
+     return result
