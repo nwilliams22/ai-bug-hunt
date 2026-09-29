@@ -1,3 +1,8 @@
+import time
+
+import requests
+
+
 def fetch_with_retry(url, retries=3):
     """Fetch url, retrying up to `retries` times with exponential backoff."""
     for i in range(retries):

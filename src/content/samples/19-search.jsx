@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 function SearchResults({ query }) {
   const [results, setResults] = useState([]);
 

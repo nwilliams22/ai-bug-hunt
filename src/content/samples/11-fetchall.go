@@ -1,3 +1,10 @@
+package main
+
+import (
+	"net/http"
+	"sync"
+)
+
 func fetchAll(urls []string) map[string]int {
 	results := make(map[string]int)
 	var wg sync.WaitGroup
