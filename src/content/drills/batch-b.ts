@@ -178,6 +178,16 @@ export const DRILLS_BATCH_B: Drill[] = [
         fix:
           "`ChronoUnit.DAYS.between` on `LocalDate`s in the invoice's zone, and decide out loud whether the bound is inclusive.",
       },
+      {
+        family: "time",
+        title: "A future invoice date is treated as current",
+        signal: "silent",
+        severity: "minor",
+        body:
+          "If `issued` is in the future, `(now.time - issued.time) / (1000 * 60 * 60 * 24)` is negative, and every negative value is `<= 30`. The invoice is marked current before it has been issued, until more than 30 days after its date. Reject future dates or compare an explicitly bounded interval.",
+        fix:
+          "Require `issued <= now` and define the inclusive 30-day boundary using the invoice's billing zone.",
+      },
     ],
   },
   {
@@ -216,9 +226,9 @@ export const DRILLS_BATCH_B: Drill[] = [
         family: "failure",
         title: "Unquoted, unvalidated `$1`",
         signal: "mixed",
-        severity: "blocker",
+        severity: "major",
         body:
-          "With no argument, `DATA` is empty and unquoted, so `find $DATA -name '*.idx' -mtime +7 -delete` becomes `find -name '*.idx' -mtime +7 -delete` and deletes index files under the *current* directory — whatever cron's working directory happens to be. `$DATA/index.new` becomes `/index.new`. A path containing a space splits into two arguments and deletes from a directory nobody named. `set -e` does not help, because none of this fails.",
+          "`DATA` is unquoted, so a path containing whitespace is split into multiple arguments and `find` can operate on a different path than the caller supplied. With no argument, GNU `find` receives `-name` where it expects a starting path, prints an error, and `set -e` exits before the delete or indexer commands run; this is a loud failure, not deletion from the current directory. Validate the required directory before use and quote every expansion to prevent the wrong-path case.",
         fix:
           "`set -euo pipefail`, quote every expansion, and `[[ -d $DATA ]] || { echo 'usage: reindex.sh DIR' >&2; exit 2; }`.",
       },
@@ -267,26 +277,6 @@ export const DRILLS_BATCH_B: Drill[] = [
           "`sweep` collects stale keys under the read lock, drops it, then removes them under the write lock. A key that was stale during the collect pass may have been re-rendered in the gap — which for a hot key is the common case — and `remove` throws the fresh entry away. The next `get` re-renders, so the symptom is a two-second latency spike on a key that was just populated, at an interval set by the sweeper rather than by the TTL. This defect is invisible while the bug above is present: the render herd keeps every hot key warm, so a needless eviction costs nothing you can measure. Fixing single-flight is what makes it show up.",
         fix:
           "Do the whole sweep under the write lock, or re-check `at.elapsed() >= ttl` inside the write section before removing.",
-      },
-      {
-        family: "failure",
-        title: "`.unwrap()` on the lock makes one panic permanent",
-        signal: "mixed",
-        severity: "major",
-        body:
-          "`render` is caller-supplied and runs outside the lock, but any panic *inside* a lock section — an allocation failure, an arithmetic overflow in debug, a panic in a `Drop` — poisons the `RwLock`. Every subsequent `get`, `sweep` and `len` then unwraps an `Err` and panics in turn, so a single transient fault turns the cache into a permanent process-wide outage, and every stack trace points at this file rather than at whatever panicked first.",
-        fix:
-          "Handle poisoning explicitly (`unwrap_or_else(|e| e.into_inner())` when the data is still sound), or use a non-poisoning lock such as `parking_lot::RwLock`.",
-      },
-      {
-        family: "failure",
-        title: "A failing render has nowhere to go",
-        signal: "silent",
-        severity: "major",
-        body:
-          "`render: impl Fn(&str) -> String` cannot report failure. A closure that cannot reach the pricing service must either panic — see above — or return a string that says so, and the cache will then store that string for the full TTL and serve it to every caller as a price table. The signature makes the wrong thing the easy thing.",
-        fix:
-          "`render: impl Fn(&str) -> Result<String, E>`, and do not insert on `Err`; return the previous value if there is one.",
       },
       {
         family: "boundary",
@@ -593,16 +583,6 @@ export const DRILLS_BATCH_B: Drill[] = [
       },
       {
         family: "time",
-        title: "The last day of a period is never flushed",
-        signal: "silent",
-        severity: "major",
-        body:
-          "`flush` only batches days strictly before `today`, and `today` is only advanced when a flush runs. A customer whose usage stops — the end of a trial, a cancelled account, the last day of a billing period for a low-traffic tenant — has a bucket that no flush ever considers complete until some later tick happens to see a new date. The invoice run reads the warehouse, not `pending`, so that day is simply absent from the bill, and a missing day looks exactly like a day with no usage.",
-        fix:
-          "Flush a day once the wall clock passes its end plus a grace window, and flush on shutdown with a registered hook.",
-      },
-      {
-        family: "time",
         title: "`billableHours` throws the zone away before measuring",
         signal: "silent",
         severity: "major",
@@ -656,26 +636,6 @@ export const DRILLS_BATCH_B: Drill[] = [
           "The reclaim clause only matches rows where `status = 'queued'`, and claiming a row sets `status = 'running'`. So a job whose worker was OOM-killed sits at `running` with a `locked_at` from an hour ago and is never selected again by anything: the clause that exists to recover it can never see it. Jobs leak out of the queue permanently, one per worker death. This is invisible until the race above is fixed — while every job is being claimed repeatedly, something always picks the work up anyway, so nothing appears stuck. Fixing the locking is what starts the stalls.",
         fix:
           "`WHERE status = 'queued' OR (status = 'running' AND locked_at < NOW() - INTERVAL '5 minutes')`, and make the reclaim visible: count it, alert on it, and cap it with `attempts`.",
-      },
-      {
-        family: "contract",
-        title: "`ORDER BY priority DESC` puts NULLs first",
-        signal: "silent",
-        severity: "major",
-        body:
-          "In Postgres `DESC` implies `NULLS FIRST`. Every row that existed before this change has a NULL `priority` until a backfill runs, so the new ordering is inverted at exactly the moment it is deployed: the entire unprioritised backlog sorts ahead of the explicitly high-priority work the change was written to expedite. The query is correct, the plan is fine, and the feature does the opposite of what it says.",
-        fix:
-          "`ORDER BY priority DESC NULLS LAST, created_at`, and give the column a `NOT NULL DEFAULT 0` so the ambiguity cannot arise.",
-      },
-      {
-        family: "boundary",
-        title: "Four new columns, no migration, and no attempt cap",
-        signal: "mixed",
-        severity: "major",
-        body:
-          "The change that is not in the diff. `locked_at`, `locked_by`, `priority` and `attempts` all appear for the first time in these lines, and no migration accompanies them — so this deploys as an error on every worker's first query, and the queue stops. `attempts = attempts + 1` is also incremented but never read: nothing caps it, so a job that crashes its worker on every attempt is retried until someone notices, and with the reclaim above fixed that is forever rather than never. Nor does anything in this change move a job out of `running` on success or failure.",
-        fix:
-          "Ship the migration in the same change, with defaults and an index on `(status, priority DESC NULLS LAST, created_at)`; add `AND attempts < :max` to the claim and a dead-letter path for what exceeds it.",
       },
     ],
   },
