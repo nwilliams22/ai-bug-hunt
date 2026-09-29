@@ -12,6 +12,8 @@ import { GotchasView } from "./views/GotchasView";
 import { TimedView } from "./views/TimedView";
 import { ProgressView, computeStats } from "./views/ProgressView";
 import { toSession } from "./timed";
+import { dueReviews } from "./review";
+import { ReviewView } from "./views/ReviewView";
 import type { TimedRun } from "./types";
 
 export default function App() {
@@ -23,6 +25,39 @@ export default function App() {
   }, [progress]);
 
   const stats = useMemo(() => computeStats(progress), [progress]);
+  const dueCount = dueReviews(progress).length;
+
+  const completeReview = useCallback((id: number, note: string) => {
+    if (note.trim().length < 25) return;
+    setProgress((p) => {
+      if (!dueReviews(p).some((entry) => entry.drill.id === id)) return p;
+      if (p.reviews[id]?.at(-1)?.scored === false) return p;
+      return { ...p, reviews: { ...p.reviews,
+        [id]: [...(p.reviews[id] ?? []), { note, revealedAt: Date.now(), caught: {}, scored: false }] } };
+    });
+  }, []);
+
+  const finishReview = useCallback((id: number) => {
+    setProgress((p) => {
+      const attempts = p.reviews[id];
+      if (!attempts?.length) return p;
+      return { ...p, reviews: { ...p.reviews, [id]: [
+        ...attempts.slice(0, -1), { ...attempts[attempts.length - 1], scored: true },
+      ] } };
+    });
+  }, []);
+
+  const markReview = useCallback((id: number, index: number, caught: boolean) => {
+    setProgress((p) => {
+      const attempts = p.reviews[id];
+      if (!attempts?.length) return p;
+      return { ...p, reviews: { ...p.reviews, [id]: [
+        ...attempts.slice(0, -1),
+        { ...attempts[attempts.length - 1], caught: {
+          ...attempts[attempts.length - 1].caught, [index]: caught } },
+      ] } };
+    });
+  }, []);
 
   const updateDrill = useCallback((id: number, patch: Partial<DrillProgress>) => {
     setProgress((p) => ({
@@ -70,6 +105,7 @@ export default function App() {
               ? `${stats.hit}/${stats.total} caught · ${stats.reviewed}/${DRILLS.length} reviewed`
               : "no drills reviewed yet"}
           </a>
+          <a className="score" href={href({ view: "review" })}><b>{dueCount}</b>due reviews</a>
         </div>
       </header>
 
@@ -115,6 +151,10 @@ export default function App() {
             />
           )}
 
+          {route.view === "review" && <ReviewView key={route.id ?? "queue"}
+            id={route.id} progress={progress} complete={completeReview} mark={markReview}
+            finish={finishReview} />}
+
           {route.view === "progress" && (
             <ProgressView progress={progress} stats={stats} replace={setProgress} />
           )}
@@ -143,6 +183,8 @@ function Sidebar({
         {open ? "Close" : "Menu"}
       </button>
       <nav className="side" data-open={open ? "1" : "0"}>
+        <a className="side-link side-top" data-on={route.view === "review" ? "1" : "0"}
+          href={href({ view: "review" })}>Review queue · {dueReviews(progress).length} due</a>
         <a
           className="side-link side-top"
           data-on={route.view === "home" ? "1" : "0"}

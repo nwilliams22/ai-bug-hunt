@@ -440,6 +440,66 @@ export async function run(cdpBase) {
     (await evalJs(`document.querySelectorAll('blockquote.wrote').length`)) === 4 &&
     (await evalJs(`document.querySelectorAll('.def').length`)) === 8);
 
+  /* --------------------------- repeat review queue ------------------------ */
+
+  // A v2 export has no reviews; the normaliser must retain the original answer.
+  await evalJs(`(() => {
+    const old = { version: 2, drills: {
+      1: { note: "Original review with enough detail to score", revealed: true,
+        hintLevel: 0, caught: { 0: true, 1: true }, revealedAt: Date.now() - 5 * 86400000 },
+      8: { note: "Missed both blockers in the original review", revealed: true,
+        hintLevel: 0, caught: {}, revealedAt: Date.now() - 2 * 86400000 },
+    }, lessonsRead: {}, sessions: [] };
+    localStorage.setItem("bug-finder:progress:v1", JSON.stringify(old));
+    location.hash = "#/";
+  })()`);
+  await send("Page.reload");
+  await sleep(1200);
+  check("old progress imports with its first attempt intact",
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).version`)) === 3 &&
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).drills[1].caught[0]`)) === true);
+  check("due count is visible on the landing page",
+    (await evalJs(`document.querySelector('.bar a[href="#/review"]')?.textContent ?? ""`)).includes("1 due"));
+
+  await evalJs(`location.hash = "#/review"`);
+  await sleep(300);
+  check("bad outcomes become due sooner than clean outcomes",
+    (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/8"]').length`)) === 1 &&
+    (await evalJs(`document.querySelectorAll('.lesson-list a[href="#/review/1"]').length`)) === 0);
+
+  await evalJs(`location.hash = "#/review/8"`);
+  await sleep(350);
+  check("repeat answer is hidden before writing",
+    (await evalJs(`document.querySelectorAll('.def').length`)) === 0 &&
+    (await evalJs(`document.querySelector('button.btn')?.disabled`)) === true &&
+    (await evalJs(`document.body.textContent`)).includes("Attempt history") === false);
+  await type("I found both blockers this time, with a concrete failing input for each.");
+  await sleep(200);
+  check("writing unlocks repeat reveal",
+    (await evalJs(`document.querySelector('button.btn')?.disabled`)) === false);
+  await click("Lock in and reveal");
+  await sleep(350);
+  check("repeat reveal exposes independent scoring",
+    (await evalJs(`document.querySelectorAll('.def').length`)) > 0 &&
+    (await evalJs(`JSON.parse(localStorage.getItem("bug-finder:progress:v1")).reviews[8].length`)) === 1);
+  await evalJs(`document.querySelector('.def input[type=checkbox]').click()`);
+  await sleep(250);
+  check("repeat score does not overwrite first attempt",
+    (await evalJs(`(() => { const p = JSON.parse(localStorage.getItem("bug-finder:progress:v1"));
+      return p.drills[8].caught[0] !== true && p.reviews[8][0].caught[0] === true;
+    })()`)) === true);
+  await send("Page.reload");
+  await sleep(1200);
+  check("unfinished scoring resumes after reload",
+    (await evalJs(`document.querySelectorAll('.def').length`)) > 0 &&
+    (await evalJs(`document.querySelector('button.btn')?.textContent ?? ""`)).includes("Finish scoring"));
+  await click("Finish scoring");
+  await sleep(250);
+  await evalJs(`location.hash = "#/review"`);
+  await sleep(300);
+  check("due set recomputes from stored attempts after reload",
+    (await evalJs(`document.body.textContent`)).includes("0 due now"));
+
   /* ------------------------------ console -------------------------------- */
 
   await sleep(300);

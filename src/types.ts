@@ -139,6 +139,15 @@ export interface DrillProgress {
   revealedAt?: number;
 }
 
+/** One completed repeat; the original answer remains in DrillProgress. */
+export interface ReviewAttempt {
+  note: string;
+  revealedAt: number;
+  caught: Record<number, boolean>;
+  /** The answer has been shown, but scoring may still be in progress. */
+  scored: boolean;
+}
+
 /** One finished timed review, kept for the history on the progress page. */
 export interface TimedSession {
   id: string;
@@ -154,8 +163,9 @@ export interface TimedSession {
 }
 
 export interface Progress {
-  version: 2;
+  version: 3;
   drills: Record<number, DrillProgress>;
+  reviews: Record<number, ReviewAttempt[]>;
   lessonsRead: Record<string, boolean>;
   sessions: TimedSession[];
 }

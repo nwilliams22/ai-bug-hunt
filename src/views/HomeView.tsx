@@ -4,10 +4,12 @@ import { GOTCHAS } from "../content/gotchas";
 import { href } from "../route";
 import type { Progress } from "../types";
 import { drillState } from "../storage";
+import { dueReviews } from "../review";
 
 export function HomeView({ progress }: { progress: Progress }) {
   const nextLesson = LESSONS.find((l) => !progress.lessonsRead[l.id]);
   const nextDrill = DRILLS.find((d) => !drillState(progress, d.id).revealed);
+  const due = dueReviews(progress);
 
   return (
     <>
@@ -29,6 +31,9 @@ export function HomeView({ progress }: { progress: Progress }) {
         </p>
 
         <div className="bar">
+          <a className="btn" href={href({ view: "review" })}>
+            Review queue: {due.length} due
+          </a>
           {nextLesson && (
             <a className="btn" href={href({ view: "lesson", id: nextLesson.id })}>
               {progress.lessonsRead[LESSONS[0].id] ? "Continue" : "Start"}: {nextLesson.title}

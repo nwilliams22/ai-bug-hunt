@@ -7,6 +7,7 @@ export type Route =
   | { view: "drills" }
   | { view: "gotchas"; lang?: string }
   | { view: "timed" }
+  | { view: "review"; id?: number }
   | { view: "progress" };
 
 export function parse(hash: string): Route {
@@ -27,6 +28,10 @@ export function parse(hash: string): Route {
       return { view: "gotchas", lang: parts[1] };
     case "timed":
       return { view: "timed" };
+    case "review": {
+      const id = Number(parts[1]);
+      return parts[1] && Number.isInteger(id) ? { view: "review", id } : { view: "review" };
+    }
     case "progress":
       return { view: "progress" };
     default:
@@ -48,6 +53,8 @@ export function href(r: Route): string {
       return r.lang ? `#/gotchas/${encodeURIComponent(r.lang)}` : "#/gotchas";
     case "timed":
       return "#/timed";
+    case "review":
+      return r.id === undefined ? "#/review" : `#/review/${r.id}`;
     case "progress":
       return "#/progress";
   }

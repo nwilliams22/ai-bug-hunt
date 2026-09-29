@@ -1,4 +1,4 @@
-import type { Progress, DrillProgress, TimedSession } from "./types";
+import type { Progress, DrillProgress, ReviewAttempt, TimedSession } from "./types";
 
 // The key is deliberately still v1: the shape only ever gained fields, and
 // normalise() fills them in, so a store written by an earlier build loads
@@ -13,7 +13,18 @@ export const EMPTY_DRILL: DrillProgress = {
 };
 
 export function empty(): Progress {
-  return { version: 2, drills: {}, lessonsRead: {}, sessions: [] };
+  return { version: 3, drills: {}, reviews: {}, lessonsRead: {}, sessions: [] };
+}
+
+function normaliseCaught(input: unknown): Record<number, boolean> {
+  const caught: Record<number, boolean> = {};
+  if (typeof input === "object" && input !== null) {
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      const id = Number(key);
+      if (Number.isInteger(id) && id >= 0 && value === true) caught[id] = true;
+    }
+  }
+  return caught;
 }
 
 export function load(): Progress {
@@ -53,21 +64,32 @@ export function normalise(input: unknown): Progress {
       const id = Number(k);
       if (!Number.isInteger(id) || typeof v !== "object" || v === null) continue;
       const d = v as Record<string, unknown>;
-      const caught: Record<number, boolean> = {};
-      if (typeof d.caught === "object" && d.caught !== null) {
-        for (const [ck, cv] of Object.entries(d.caught as Record<string, unknown>)) {
-          const ci = Number(ck);
-          if (Number.isInteger(ci) && cv === true) caught[ci] = true;
-        }
-      }
       out.drills[id] = {
         note: typeof d.note === "string" ? d.note : "",
         revealed: d.revealed === true,
         hintLevel:
           typeof d.hintLevel === "number" ? Math.max(0, Math.min(2, d.hintLevel)) : 0,
-        caught,
+        caught: normaliseCaught(d.caught),
         revealedAt: typeof d.revealedAt === "number" ? d.revealedAt : undefined,
       };
+    }
+  }
+
+  // Version 2 exports have no reviews. Their original drill state stays intact.
+  if (typeof src.reviews === "object" && src.reviews !== null) {
+    for (const [key, value] of Object.entries(src.reviews as Record<string, unknown>)) {
+      const id = Number(key);
+      if (!Number.isInteger(id) || !Array.isArray(value)) continue;
+      const attempts: ReviewAttempt[] = [];
+      for (const raw of value) {
+        if (typeof raw !== "object" || raw === null) continue;
+        const attempt = raw as Record<string, unknown>;
+        if (typeof attempt.note !== "string" || attempt.note.trim().length < 25 ||
+            typeof attempt.revealedAt !== "number" || !Number.isFinite(attempt.revealedAt)) continue;
+        attempts.push({ note: attempt.note, revealedAt: attempt.revealedAt,
+          caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false });
+      }
+      if (attempts.length) out.reviews[id] = attempts;
     }
   }
 
