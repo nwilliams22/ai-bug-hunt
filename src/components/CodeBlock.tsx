@@ -107,6 +107,9 @@ export function CodeBlock({ code, lang, diff = false, numbers = false }: Props) 
       return lines.map((line) => ({ kind: "ctx" as const, html: highlight(line, lang) }));
     }
     return lines.map((line) => {
+      if (/^(--- |\+\+\+ |@@|diff --git |index )/.test(line)) {
+        return { kind: "ctx" as const, html: escapeHtml(line) };
+      }
       const marker = line[0];
       const rest = line.slice(1);
       const kind = marker === "+" ? "add" : marker === "-" ? "del" : "ctx";
