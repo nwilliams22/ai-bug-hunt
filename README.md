@@ -47,7 +47,7 @@ happens at the end all at once. Sessions fold into the ordinary drill progress, 
 is one score for the course rather than two that disagree.
 
 **107 language gotchas.** Traps specific to a language rather than to logic, weighted
-toward the ones generated code lands on repeatedly. Every entry changes behaviour; none of
+toward the ones generated code lands on repeatedly. Every entry changes behavior; none of
 them are style opinions. Use it as a checklist when reviewing a language you touch rarely.
 
 **Scoring that points somewhere.** Progress is tracked per pass, so a low rate on one
@@ -156,7 +156,11 @@ first time two people added drills on the same day; now they cannot.
 3. Each defect needs a `family` (one of the six passes), a `signal` (loud / silent /
    mixed) and a `severity` (blocker / major / minor / nit). Those three fields drive the
    scoring, so they are not decoration.
-4. Update the counts in this README, or `npm run check` will fail — see `npm run stats`.
+4. Add the id to the `practice` list of the lesson it exercises, in
+   `src/content/lessons.ts`. `npm run check` fails on a drill no lesson practices: the
+   lists named drills 1–30 for months while 49 more landed, so everything added after the
+   lessons were written was reachable only from the index.
+5. Update the counts in this README, or `npm run check` will fail — see `npm run stats`.
 
 The defect `body` is the part that teaches. State the mechanism, give a concrete failing
 input, and say what the operator sees — the same four-part shape the *Writing the finding*
@@ -192,7 +196,7 @@ src/
     passes.ts     the six passes
   components/     CodeBlock (Prism + diff rendering), DrillCode, Markdown
   views/          one file per route
-  storage.ts      localStorage, with import/export and a defensive normaliser
+  storage.ts      localStorage, with import/export and a defensive normalizer
   timed.ts        timed-session state, scoring and its own storage key
   route.ts        hash routing, so it hosts from any path
 scripts/

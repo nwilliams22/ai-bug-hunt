@@ -40,11 +40,14 @@ export function LessonView({ id, read, setRead }: Props) {
 
         {lesson.practice && lesson.practice.length > 0 && (
           <div className="practice">
-            <p className="practice-h">Practise this</p>
+            <p className="practice-h">Practice this</p>
             <p className="practice-note">
               Optional, and nothing is gated on it — the next lesson is open whether
               you do these or not. They are ordinary drills from the Drills list in the
-              sidebar, at the numbers shown below, picked because they exercise this lesson.
+              sidebar, at the numbers shown below, picked because they exercise this lesson
+              and ordered easiest first. Being listed here is <em>not</em> a hint: some of
+              these samples are correct, and some hide their defect in another pass
+              entirely.
             </p>
             <ul>
               {lesson.practice.map((n) => {
@@ -55,7 +58,9 @@ export function LessonView({ id, read, setRead }: Props) {
                     <a href={href({ view: "drill", id: n })}>
                       {practicePosition(n)}. {d.title}
                     </a>{" "}
-                    <span className="practice-lang">{d.lang}</span>
+                    <span className="practice-lang">
+                      {d.lang} · {d.level}
+                    </span>
                   </li>
                 );
               })}

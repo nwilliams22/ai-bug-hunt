@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { DRILLS } from "../content/drills";
 import { LESSONS } from "../content/lessons";
 import { PASSES } from "../content/passes";
-import { drillState, empty, exportFile, normalise } from "../storage";
+import { drillState, empty, exportFile, normalize } from "../storage";
 import { mmss, scoreRun } from "../timed";
 import { calibrationScore, expectedVerdict } from "./DrillView";
 import { href } from "../route";
@@ -125,7 +125,7 @@ export function ProgressView({ progress, stats, replace }: Props) {
 
   const onImport = async (file: File) => {
     try {
-      replace(normalise(JSON.parse(await file.text())));
+      replace(normalize(JSON.parse(await file.text())));
     } catch {
       alert("That file could not be read as saved progress.");
     }

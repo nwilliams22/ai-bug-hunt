@@ -6,7 +6,7 @@ the method makes it worse, not bigger.
 ## The one rule
 
 **A drill is only worth writing if a competent reviewer could plausibly approve the code.**
-If the defect is visible at a glance, it teaches nothing — the learner is not practising a
+If the defect is visible at a glance, it teaches nothing — the learner is not practicing a
 search, they are reading an answer. Generated code is syntactically perfect, idiomatically
 plausible, well named and confidently commented. Write it that way, then break it the way a
 model actually breaks it: not a typo, a *wrong mental model applied consistently*.
@@ -14,8 +14,8 @@ model actually breaks it: not a typo, a *wrong mental model applied consistently
 Tests for a drill you are about to write:
 
 - Would this code pass a linter and a type checker? It must.
-- Do the names, comments and docstring all describe the *intended* behaviour? They must —
-  the gap between the stated contract and the real behaviour is the thing being taught.
+- Do the names, comments and docstring all describe the *intended* behavior? They must —
+  the gap between the stated contract and the real behavior is the thing being taught.
 - Is at least one defect **silent**? A defect that raises is found by running the code, and
   nobody is paid to find those.
 - Would you be embarrassed to be told the answer? Good.
@@ -78,7 +78,7 @@ a real reviewer is not finding nothing — it is finding the first thing and sto
 The best drills are built so that fixing defect A is what makes defect B visible. The SQL
 report drill's `COUNT(*)` bug is invisible until you fix the `LEFT JOIN` that was filtering
 those rows out; the Ruby coupon's missing 100% cap is dead code until you notice the `or`
-precedence bug above it. This is what a real review runs into and it cannot be practised by
+precedence bug above it. This is what a real review runs into and it cannot be practiced by
 reading.
 
 ### Diff-shaped drills
@@ -101,7 +101,7 @@ a small subset; see `src/components/Markdown.tsx` before using a construct.
 ## Gotchas
 
 A gotcha is a trap specific to a *language* rather than to logic. Every entry must change
-behaviour — no style opinions, no lint rules. Weight toward what generated code lands on
+behavior — no style opinions, no lint rules. Weight toward what generated code lands on
 repeatedly. Give `code` and `fix` whenever the trap is easier shown than described.
 
 ## Before you open your work for review

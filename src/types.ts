@@ -83,7 +83,7 @@ export interface Lesson {
   blurb: string;
   /** Markdown-ish body. See src/components/Markdown.tsx for the supported subset. */
   body: string;
-  /** Drill ids that practise this lesson. */
+  /** Drill ids that practice this lesson. */
   practice?: number[];
 }
 

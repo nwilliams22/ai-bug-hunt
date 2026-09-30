@@ -237,7 +237,7 @@ export const DRILLS_CORE: Drill[] = [
         severity: "major",
         body:
           "If created_at is a timestamp, the bare date is coerced to midnight, and whether that's in UTC or session-local time depends on the column type and server configuration. Reports built this way drift by a day at month boundaries.",
-        fix: "Compare against an explicit timestamptz, parameterised rather than inlined.",
+        fix: "Compare against an explicit timestamptz, parameterized rather than inlined.",
       },
     ],
   },
@@ -340,7 +340,7 @@ export const DRILLS_CORE: Drill[] = [
         severity: "major",
         body:
           "[a-z]{2,} is case-sensitive with no re.IGNORECASE flag, so USER@EXAMPLE.COM fails validation. Email domains are case-insensitive, so this rejects legitimate addresses — and it will look to support like an intermittent bug, because it depends on how the user typed it.",
-        fix: "Add re.IGNORECASE, or normalise before matching.",
+        fix: "Add re.IGNORECASE, or normalize before matching.",
       },
     ],
   },
@@ -405,7 +405,7 @@ export const DRILLS_CORE: Drill[] = [
     defects: [
       {
         family: "state",
-        title: "Concurrent writes to an unsynchronised map",
+        title: "Concurrent writes to an unsynchronized map",
         signal: "loud",
         severity: "blocker",
         body:
@@ -512,7 +512,7 @@ export const DRILLS_CORE: Drill[] = [
         severity: "blocker",
         body:
           "Where() is deferred: it builds a query and executes nothing. Count() then executes the whole thing, and returning `large` hands the caller a query that will execute a second time when they iterate. Against a database that is two round trips for one logical question. Against a sequence that can only be read once — a yield-return iterator over a stream, a network reader, an IAsyncEnumerable adapter — the second enumeration yields nothing or throws, so the log line says 'Found 40 large orders' and the caller receives zero.",
-        fix: "Materialise once: var large = orders.Where(...).ToList(); then log large.Count and return it.",
+        fix: "Materialize once: var large = orders.Where(...).ToList(); then log large.Count and return it.",
       },
       {
         family: "failure",
@@ -521,7 +521,7 @@ export const DRILLS_CORE: Drill[] = [
         severity: "blocker",
         body:
           "If `orders` is backed by an Entity Framework DbSet scoped to the request, the returned query executes wherever the caller happens to iterate it — possibly after the DbContext has been disposed, which throws ObjectDisposedException from a stack frame with no obvious relationship to this method. The exception surfaces in the view layer and the investigation starts in the wrong file.",
-        fix: "Materialise before returning, or return IQueryable deliberately and document that the caller owns the lifetime.",
+        fix: "Materialize before returning, or return IQueryable deliberately and document that the caller owns the lifetime.",
       },
       {
         family: "contract",
@@ -654,7 +654,7 @@ export const DRILLS_CORE: Drill[] = [
       },
       {
         family: "time",
-        title: "Backoff with no jitter synchronises every client",
+        title: "Backoff with no jitter synchronizes every client",
         signal: "silent",
         severity: "minor",
         body:
@@ -771,7 +771,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "minor",
         body:
-          "Every caller that gets a hit receives the same object reference. One caller mutating the returned user — even something innocuous like deleting a field before serialising — corrupts what every subsequent caller sees, and the corruption persists in memory with no way to trace it back.",
+          "Every caller that gets a hit receives the same object reference. One caller mutating the returned user — even something innocuous like deleting a field before serializing — corrupts what every subsequent caller sees, and the corruption persists in memory with no way to trace it back.",
         fix: "Freeze the cached object, or return a structured clone.",
       },
     ],
@@ -792,11 +792,11 @@ export const DRILLS_CORE: Drill[] = [
     defects: [
       {
         family: "contract",
-        title: "It is a silent behaviour change for every existing caller",
+        title: "It is a silent behavior change for every existing caller",
         signal: "silent",
         severity: "blocker",
         body:
-          "Before the change, `override={'db': {'host': 'x'}}` replaced the whole db section, so any key the override omitted was gone. After it, the omitted keys survive from base. Both behaviours are defensible, but callers were written against the first, and nothing tells them the second is now in force: no version bump, no docstring change, no test. Somewhere there is a caller passing a deliberately reduced section in order to clear fields, and it now silently stops clearing them. Flagging the compatibility break is the finding here, not the merge logic itself.",
+          "Before the change, `override={'db': {'host': 'x'}}` replaced the whole db section, so any key the override omitted was gone. After it, the omitted keys survive from base. Both behaviors are defensible, but callers were written against the first, and nothing tells them the second is now in force: no version bump, no docstring change, no test. Somewhere there is a caller passing a deliberately reduced section in order to clear fields, and it now silently stops clearing them. Flagging the compatibility break is the finding here, not the merge logic itself.",
         fix: "Update the docstring, add tests covering both shapes, and provide an explicit way to replace a subtree wholesale.",
       },
       {
@@ -814,7 +814,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "Only dict values recurse. A list value in override replaces the base list entirely. That asymmetry is a real design decision — most config systems land on it — but it is now undocumented behaviour that a user will discover when appending one item to a list wipes out the other ten.",
+          "Only dict values recurse. A list value in override replaces the base list entirely. That asymmetry is a real design decision — most config systems land on it — but it is now undocumented behavior that a user will discover when appending one item to a list wipes out the other ten.",
         fix: "State the list policy in the docstring, and be consistent about it.",
       },
       {
@@ -832,7 +832,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "nit",
         body:
-          "Config loaders routinely return OrderedDict, defaultdict — both fine, they subclass dict — but also custom Mapping types that do not. Those take the else branch and replace instead of merging, so the function's behaviour depends on which YAML library produced the object.",
+          "Config loaders routinely return OrderedDict, defaultdict — both fine, they subclass dict — but also custom Mapping types that do not. Those take the else branch and replace instead of merging, so the function's behavior depends on which YAML library produced the object.",
         fix: "Test against collections.abc.Mapping.",
       },
     ],
@@ -935,7 +935,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "mixed",
         severity: "blocker",
         body:
-          "top_windows takes `readings` by value, so best_window views a local copy. Every Window in the returned vector holds a span into that copy's buffer, which is freed when top_windows returns — the caller reads freed memory. It is worse inside the loop: readings.erase() invalidates the buffer that the spans already pushed into `out` point at, so earlier passes dangle before the function has even finished. Both are undefined behaviour that usually 'works' in a debug build because the freed pages are still mapped and still hold the old bytes.",
+          "top_windows takes `readings` by value, so best_window views a local copy. Every Window in the returned vector holds a span into that copy's buffer, which is freed when top_windows returns — the caller reads freed memory. It is worse inside the loop: readings.erase() invalidates the buffer that the spans already pushed into `out` point at, so earlier passes dangle before the function has even finished. Both are undefined behavior that usually 'works' in a debug build because the freed pages are still mapped and still hold the old bytes.",
         fix:
           "Return owning values (a std::vector<double> per window, or an index+width pair), or take the data by const reference and document that the caller must outlive the result.",
       },
@@ -1036,7 +1036,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "minor",
         body:
-          "`subtotal * percent / 100` truncates toward zero, so 10% of 1999 cents is 199, not 200. It is consistently in the merchant's favour and consistently disagrees with whatever the finance spec says at every amount that is not a multiple of 10. One cent, on every order, is an accounting discrepancy rather than a rounding detail.",
+          "`subtotal * percent / 100` truncates toward zero, so 10% of 1999 cents is 199, not 200. It is consistently in the merchant's favor and consistently disagrees with whatever the finance spec says at every amount that is not a multiple of 10. One cent, on every order, is an accounting discrepancy rather than a rounding detail.",
         fix: "Decide and write it down: (subtotal * percent).fdiv(100).round, or use BigDecimal.",
       },
     ],
@@ -1123,7 +1123,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "The first caller's overrides are baked into the cached RetryPolicy and served to every later caller of the same path, whatever they pass. Worse, the first call in a process is usually the one with no overrides at all — from a health check or an eager initialiser — so in production the overrides are silently never applied, while in a test that calls load() once with overrides they always are.",
+          "The first caller's overrides are baked into the cached RetryPolicy and served to every later caller of the same path, whatever they pass. Worse, the first call in a process is usually the one with no overrides at all — from a health check or an eager initializer — so in production the overrides are silently never applied, while in a test that calls load() once with overrides they always are.",
         fix:
           "Key on (path, overrides), or take overrides out of the cached function and apply them to the cached result.",
       },
@@ -1157,7 +1157,7 @@ export const DRILLS_CORE: Drill[] = [
       },
       {
         family: "time",
-        title: "A process-wide HashMap mutated with no synchronisation",
+        title: "A process-wide HashMap mutated with no synchronization",
         signal: "silent",
         severity: "major",
         body:
@@ -1212,7 +1212,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "minor",
         body:
-          "`x.email > y.email ? 1 : -1` claims every pair is strictly ordered, including equal pairs. An inconsistent comparator is undefined behaviour for sort: V8's TimSort can produce an order that is not merely unstable but wrong, moving unrelated elements. It is also a raw UTF-16 code-unit comparison, so accented and non-Latin addresses sort in an order no user recognises.",
+          "`x.email > y.email ? 1 : -1` claims every pair is strictly ordered, including equal pairs. An inconsistent comparator is undefined behavior for sort: V8's TimSort can produce an order that is not merely unstable but wrong, moving unrelated elements. It is also a raw UTF-16 code-unit comparison, so accented and non-Latin addresses sort in an order no user recognizes.",
         fix: "(x, y) => x.email.localeCompare(y.email)",
       },
       {
@@ -1265,7 +1265,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "The signature promises a cancellable, deadline-aware operation; the body threads ctx into worker and ignores it there too. A caller who cancels gets nothing — the pool runs every id to completion and the goroutines outlive the request that started them. A context parameter that is not selected on is worse than no parameter, because it advertises a guarantee the code does not provide.",
+          "The signature promises a cancelable, deadline-aware operation; the body threads ctx into worker and ignores it there too. A caller who cancels gets nothing — the pool runs every id to completion and the goroutines outlive the request that started them. A context parameter that is not selected on is worse than no parameter, because it advertises a guarantee the code does not provide.",
         fix: "select on ctx.Done() in both the job loop and the result send, and pass ctx into fn.",
       },
       {
@@ -1276,7 +1276,7 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "On the time.After branch, the goroutine running fn is still running. Its side effects land after the caller has been told 'timeout on X', so a retry runs fn twice concurrently on the same id — two writes, two charges, two emails. The buffered done channel prevents a goroutine leak on the send but does nothing about the work itself. time.After also allocates a timer per job that is not collected until it fires, so a fast queue holds five seconds' worth of dead timers at all times.",
         fix:
-          "Give fn a context with a deadline and make it honour cancellation. Use a timer you can Stop, or context.WithTimeout.",
+          "Give fn a context with a deadline and make it honor cancellation. Use a timer you can Stop, or context.WithTimeout.",
       },
       {
         family: "failure",
@@ -1284,7 +1284,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "minor",
         body:
-          "Per-item errors are returned, but there is no way to express 'the run was cancelled' or 'the pool itself failed' — the caller has to infer it from a short slice. fmt.Printf from a package makes that inference harder, not easier: a library that prints cannot be embedded in anything with a log format.",
+          "Per-item errors are returned, but there is no way to express 'the run was canceled' or 'the pool itself failed' — the caller has to infer it from a short slice. fmt.Printf from a package makes that inference harder, not easier: a library that prints cannot be embedded in anything with a log format.",
         fix: "Return ([]Result, error) and take a *slog.Logger, or return the counts and print at the call site.",
       },
     ],
@@ -1298,7 +1298,7 @@ export const DRILLS_CORE: Drill[] = [
     shape: "diff",
     code: t(s26),
     brief:
-      "Ticket: exclude cancelled orders, limit the report to the last twelve months, and add an average order value.",
+      "Ticket: exclude canceled orders, limit the report to the last twelve months, and add an average order value.",
     hintRegion:
       "The comment on line 1 is part of the diff's context, and the change makes it false. Read the WHERE clause against the join type.",
     hintFamily: "Contract, Boundaries, Silent coercion, Time.",
@@ -1337,7 +1337,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "Independently of the join problem: an order whose status has not been set yet — pending insertion by a worker, or a column added with no backfill — compares NULL against 'cancelled' and is excluded. Revenue that exists in the orders table silently does not appear in the revenue report, and the missing amount is proportional to how busy the system was when the report ran.",
+          "Independently of the join problem: an order whose status has not been set yet — pending insertion by a worker, or a column added with no backfill — compares NULL against 'canceled' and is excluded. Revenue that exists in the orders table silently does not appear in the revenue report, and the missing amount is proportional to how busy the system was when the report ran.",
         fix: "AND (o.status IS NULL OR o.status <> 'cancelled') — or COALESCE the status to a known default.",
       },
       {
@@ -1381,7 +1381,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "tick is memoised on [jobId] but closes over onDone, which JobPanel recreates on every render. So tick keeps the very first onDone forever — and that closure captured the very first `log`, the empty array. Every completion runs setLog([...[], entry]), so the log never holds more than one line and which line it holds depends on completion order. The lint rule that catches this (react-hooks/exhaustive-deps) is a warning, and generated code frequently ships with the dependency array trimmed to whatever made the warning quiet.",
+          "tick is memoized on [jobId] but closes over onDone, which JobPanel recreates on every render. So tick keeps the very first onDone forever — and that closure captured the very first `log`, the empty array. Every completion runs setLog([...[], entry]), so the log never holds more than one line and which line it holds depends on completion order. The lint rule that catches this (react-hooks/exhaustive-deps) is a warning, and generated code frequently ships with the dependency array trimmed to whatever made the warning quiet.",
         fix:
           "Keep onDone in a ref updated each render, and use the functional form: setLog((l) => [...l, entry]).",
       },
@@ -1393,7 +1393,7 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "A 500 that returns an HTML error page throws a SyntaxError, which lands in setError as 'Unexpected token <' — the operator is shown a JSON parsing problem instead of 'the job service is down'. A 404 that returns valid JSON is worse: body.status is undefined, which is neither 'succeeded' nor 'failed', so the poller schedules itself again and keeps requesting a job that does not exist until the tab is closed.",
         fix:
-          "if (!res.ok) throw new Error(`job ${jobId}: HTTP ${res.status}`), and treat an unrecognised status as terminal rather than as 'keep going'.",
+          "if (!res.ok) throw new Error(`job ${jobId}: HTTP ${res.status}`), and treat an unrecognized status as terminal rather than as 'keep going'.",
       },
       {
         family: "failure",
@@ -1411,7 +1411,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "React identifies children by key, so with an index key, removing the first job shifts every subsequent one onto its neighbour's key. The JobRow instance — and the hook state inside it, including the in-flight poll for a different jobId — is reused for the wrong job. The symptom is one job's status appearing on another row, which reads as a backend bug.",
+          "React identifies children by key, so with an index key, removing the first job shifts every subsequent one onto its neighbor's key. The JobRow instance — and the hook state inside it, including the in-flight poll for a different jobId — is reused for the wrong job. The symptom is one job's status appearing on another row, which reads as a backend bug.",
         fix: "key={job.id}",
       },
     ],
@@ -1438,7 +1438,7 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "lru_cache keys on all arguments including self, and reload() mutates the same self in place. The key is therefore unchanged by the new rate card, and every (sku, region, qty) combination already quoted keeps returning the old price for the life of the process. A pricing update appears to deploy successfully and silently does not take effect for exactly the popular items — the ones already in the cache. This is the defect that costs money, and it is invisible in any test that constructs a fresh PricingEngine.",
         fix:
-          "Cache a module-level function of the rate card's version, or hold the cache on the instance and clear it in reload(). Never memoise a method whose correctness depends on mutable instance state.",
+          "Cache a module-level function of the rate card's version, or hold the cache on the instance and clear it in reload(). Never memoize a method whose correctness depends on mutable instance state.",
       },
       {
         family: "contract",
@@ -1452,7 +1452,7 @@ export const DRILLS_CORE: Drill[] = [
       },
       {
         family: "state",
-        title: "Memoising a method pins every instance in memory",
+        title: "Memoizing a method pins every instance in memory",
         signal: "silent",
         severity: "major",
         body:
@@ -1508,7 +1508,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "mixed",
         severity: "blocker",
         body:
-          "SimpleDateFormat keeps parse and format state in a mutable Calendar field, and this one is static. Two threads rendering at once produce interleaved output: a date from the wrong instant, a garbled string, or a NumberFormatException thrown from inside format(). It is intermittent and load-dependent, so it reproduces in production and not in a test. Making a formatter static is the textbook micro-optimisation, which is exactly why it is so well represented in training data.",
+          "SimpleDateFormat keeps parse and format state in a mutable Calendar field, and this one is static. Two threads rendering at once produce interleaved output: a date from the wrong instant, a garbled string, or a NumberFormatException thrown from inside format(). It is intermittent and load-dependent, so it reproduces in production and not in a test. Making a formatter static is the textbook micro-optimization, which is exactly why it is so well represented in training data.",
         fix: "DateTimeFormatter.ofPattern(\"yyyy-MM-dd\") — immutable and thread safe — with java.time types.",
       },
       {
@@ -1558,7 +1558,7 @@ export const DRILLS_CORE: Drill[] = [
         signal: "mixed",
         severity: "blocker",
         body:
-          "An async void method returns no Task, so the caller cannot await it and cannot catch anything it throws. Control returns at the first await, which means Manifest() called on the next line reads a list that is still being filled. Any exception is raised on the captured context instead of propagating; on .NET Core, with no synchronisation context, it goes to the thread pool and terminates the process — long after the call site, with a stack that does not include it. Nothing about the signature warns the caller; it reads exactly like a fire-and-forget helper is supposed to.",
+          "An async void method returns no Task, so the caller cannot await it and cannot catch anything it throws. Control returns at the first await, which means Manifest() called on the next line reads a list that is still being filled. Any exception is raised on the captured context instead of propagating; on .NET Core, with no synchronization context, it goes to the thread pool and terminates the process — long after the call site, with a stack that does not include it. Nothing about the signature warns the caller; it reads exactly like a fire-and-forget helper is supposed to.",
         fix: "public async Task UploadAllAsync(...) — async void is only ever correct for an event handler.",
       },
       {
@@ -1588,7 +1588,7 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "Path.GetFileName collapses 2024/report.csv and 2025/report.csv onto the same object. The second upload overwrites the first, both return 200, both are added to the manifest, and the run reports two files uploaded. The data loss is complete, silent and confirmed by the log.",
         fix:
-          "Key on the path relative to the upload root, normalised and URI-escaped — and set If-None-Match if overwriting should be an error.",
+          "Key on the path relative to the upload root, normalized and URI-escaped — and set If-None-Match if overwriting should be an error.",
       },
       {
         family: "time",
@@ -1598,7 +1598,7 @@ export const DRILLS_CORE: Drill[] = [
         body:
           "paths is an IEnumerable, so a lazily enumerated directory walk starts a task per file with no ceiling — a hundred thousand files means a hundred thousand open streams and sockets, and File.OpenRead will start throwing before HttpClient does. HttpClient's default 100-second timeout applies per request, and Task.WhenAll waits for the slowest, so one stalled upload holds every open file handle for the duration. Enumerating an IEnumerable exactly once also makes this method unsafe to retry with the same argument if the caller passed a LINQ query.",
         fix:
-          "Parallel.ForEachAsync with MaxDegreeOfParallelism, a CancellationToken with a per-file deadline, and materialise the paths first.",
+          "Parallel.ForEachAsync with MaxDegreeOfParallelism, a CancellationToken with a per-file deadline, and materialize the paths first.",
       },
     ],
   },

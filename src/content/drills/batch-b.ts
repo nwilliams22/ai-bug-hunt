@@ -100,7 +100,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "A `static` local in PHP is initialised once and then persists for the life of the process, not the call. The `$rates[$state] ?? 0.0` line therefore runs for the *first* cart only, so a later cart shipping to a state absent from `TAX` — say `'TX'` — reads an undefined key: PHP 8 emits a warning and evaluates it to `null`, `1 + null` is 1, and the cart ships untaxed. Under FPM, where the process is usually fresh, this never reproduces; under a persistent worker (Swoole, RoadRunner, a queue consumer) it depends on the order carts arrive in.",
+          "A `static` local in PHP is initialized once and then persists for the life of the process, not the call. The `$rates[$state] ?? 0.0` line therefore runs for the *first* cart only, so a later cart shipping to a state absent from `TAX` — say `'TX'` — reads an undefined key: PHP 8 emits a warning and evaluates it to `null`, `1 + null` is 1, and the cart ships untaxed. Under FPM, where the process is usually fresh, this never reproduces; under a persistent worker (Swoole, RoadRunner, a queue consumer) it depends on the order carts arrive in.",
         fix:
           "Drop the `static` — the const is already built once — and look the rate up with an explicit `array_key_exists` check that throws on an unknown state.",
       },
@@ -119,7 +119,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "`$subtotal * $coupon / 100` turns an int subtotal into a float, and `(int)` truncates toward zero rather than rounding. A cart of 1999 cents with a 10% coupon is 1799.1, taxed to 1956.61, truncated to 1956 — a cent below the correct 1957. The receipt that itemises the lines rounds each one and disagrees with this number, and the difference is a cent, which is exactly small enough for nobody to file a bug and exactly large enough for the payment processor's reconciliation to fail.",
+          "`$subtotal * $coupon / 100` turns an int subtotal into a float, and `(int)` truncates toward zero rather than rounding. A cart of 1999 cents with a 10% coupon is 1799.1, taxed to 1956.61, truncated to 1956 — a cent below the correct 1957. The receipt that itemizes the lines rounds each one and disagrees with this number, and the difference is a cent, which is exactly small enough for nobody to file a bug and exactly large enough for the payment processor's reconciliation to fail.",
         fix:
           "Stay in integer cents: `intdiv($subtotal * $coupon, 100)`, and `(int) round(...)` for the tax, with the rounding rule stated.",
       },
@@ -164,7 +164,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "`cache.getOrPut(at.time)` keys on the exact epoch millisecond, so two renders of the same invoice only share an entry if their `Date` objects are millisecond-identical — which they are when the same object is passed twice, and are not when the date is re-read from the row. The map is an unbounded `mutableMapOf` (a `HashMap`) written from many threads with no synchronisation, so it grows for the life of the process and a concurrent resize can lose entries or spin. Note the trap in the obvious fix: keying on the *day* makes the formatter almost never run, which hides the thread-safety defect above until production traffic finds it.",
+          "`cache.getOrPut(at.time)` keys on the exact epoch millisecond, so two renders of the same invoice only share an entry if their `Date` objects are millisecond-identical — which they are when the same object is passed twice, and are not when the date is re-read from the row. The map is an unbounded `mutableMapOf` (a `HashMap`) written from many threads with no synchronization, so it grows for the life of the process and a concurrent resize can lose entries or spin. Note the trap in the obvious fix: keying on the *day* makes the formatter almost never run, which hides the thread-safety defect above until production traffic finds it.",
         fix:
           "Drop the cache — `DateTimeFormatter` is cheap — or use a bounded, concurrent cache keyed on the value you actually want to reuse.",
       },
@@ -319,7 +319,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "`sessions_.erase(begin() + it->second)` moves every later element down one slot, but only the removed key is erased from `index_`. Every session added after the removed one now maps to the slot of its neighbour, so `Find` returns the **wrong session** — and a message is delivered to the wrong user's socket, with the right-looking id on it. The registry keeps working, `Count()` is correct, and the defect scales with how many disconnects have happened.",
+          "`sessions_.erase(begin() + it->second)` moves every later element down one slot, but only the removed key is erased from `index_`. Every session added after the removed one now maps to the slot of its neighbor, so `Find` returns the **wrong session** — and a message is delivered to the wrong user's socket, with the right-looking id on it. The registry keeps working, `Count()` is correct, and the defect scales with how many disconnects have happened.",
         fix:
           "Swap-and-pop and repair the moved element's index entry, or key the container on the id and keep insertion order in a separate list of ids.",
       },
@@ -385,9 +385,9 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "`time.sleep(2 ** attempt)` blocks the worker for 1 then 2 seconds, so the worst case adds three seconds to a request that is going to fail anyway — long enough for the client to time out and, if the client retries, to start the whole thing again from the top. There is no jitter, so a gateway blip backs every in-flight request off by the same amount and they all return together: the recovery attempt is a synchronised thundering herd aimed at a dependency that is already unwell. No overall deadline bounds the total either.",
+          "`time.sleep(2 ** attempt)` blocks the worker for 1 then 2 seconds, so the worst case adds three seconds to a request that is going to fail anyway — long enough for the client to time out and, if the client retries, to start the whole thing again from the top. There is no jitter, so a gateway blip backs every in-flight request off by the same amount and they all return together: the recovery attempt is a synchronized thundering herd aimed at a dependency that is already unwell. No overall deadline bounds the total either.",
         fix:
-          "Randomised exponential backoff with a cap, an overall deadline passed in by the caller, and the retry moved to a queue rather than a request thread.",
+          "Randomized exponential backoff with a cap, an overall deadline passed in by the caller, and the retry moved to a queue rather than a request thread.",
       },
       {
         family: "boundary",
@@ -404,9 +404,9 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "The two defects that are not in the changed lines. First, `attempts: int = 3` means every existing call site silently acquires retry behaviour with no review of whether it is safe there — a bulk payout job now triples its worst-case runtime and its duplicate-charge exposure. Second, the `Charge` row is still created *after* the gateway call and outside any transaction with it, so a process death in that window moves money with no local record; the retry loop widens that window from one call to three plus three seconds of sleep. Neither an idempotency-key column nor a migration appears in this change.",
+          "The two defects that are not in the changed lines. First, `attempts: int = 3` means every existing call site silently acquires retry behavior with no review of whether it is safe there — a bulk payout job now triples its worst-case runtime and its duplicate-charge exposure. Second, the `Charge` row is still created *after* the gateway call and outside any transaction with it, so a process death in that window moves money with no local record; the retry loop widens that window from one call to three plus three seconds of sleep. Neither an idempotency-key column nor a migration appears in this change.",
         fix:
-          "Make the new behaviour opt-in at each call site, and write an intent row with the idempotency key *before* the first gateway call so a crash is recoverable.",
+          "Make the new behavior opt-in at each call site, and write an intent row with the idempotency key *before* the first gateway call so a crash is recoverable.",
       },
     ],
   },
@@ -531,7 +531,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "The doc comment promises the table is refreshed rather than serving an out-of-date rate, but when the refresh fails `Quote` returns the old value with `ok == true` and no age. A caller pricing an order has no way to decide that a rate from four hours ago is not good enough to commit to, because the signature does not carry the one fact that would let it. `Start` also leaks: the ticker is never stopped and the goroutine never selects on `ctx.Done()`, so the boot context is captured forever and a cancelled one makes every refresh fail instantly.",
+          "The doc comment promises the table is refreshed rather than serving an out-of-date rate, but when the refresh fails `Quote` returns the old value with `ok == true` and no age. A caller pricing an order has no way to decide that a rate from four hours ago is not good enough to commit to, because the signature does not carry the one fact that would let it. `Start` also leaks: the ticker is never stopped and the goroutine never selects on `ctx.Done()`, so the boot context is captured forever and a canceled one makes every refresh fail instantly.",
         fix:
           "Return the rate's age (or an error when it exceeds a maximum), and give `Start` a `select` on `ctx.Done()` with `defer ticker.Stop()`.",
       },
@@ -688,7 +688,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "major",
         body:
-          "`Date.now()` is subject to NTP correction, a manual clock change and a VM's clock resync after a live migration. A backwards step larger than `windowMs` makes `now - bucket.start` negative, so `> windowMs` is false and no bucket in the process ever resets again: every key is stuck at whatever count it had reached, and every caller over the limit stays over it until a full window of corrected time has passed. `retryAfter` returns a negative number in the same situation, which serialises into a `Retry-After` header clients handle in whatever way they feel like.",
+          "`Date.now()` is subject to NTP correction, a manual clock change and a VM's clock resync after a live migration. A backwards step larger than `windowMs` makes `now - bucket.start` negative, so `> windowMs` is false and no bucket in the process ever resets again: every key is stuck at whatever count it had reached, and every caller over the limit stays over it until a full window of corrected time has passed. `retryAfter` returns a negative number in the same situation, which serializes into a `Retry-After` header clients handle in whatever way they feel like.",
         fix:
           "Measure elapsed time from a monotonic source (`performance.now()`, or `process.hrtime.bigint()`), and clamp `retryAfter` to `>= 0`.",
       },
@@ -837,7 +837,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "Outside the changed lines, and the reason a diff review is worth paying for. `docId` is read from the closure of an effect with no dependencies, so navigating from document A to document B — without a `key` forcing a remount — keeps A's `body` in state *and* keeps PUTing to A's id: edits to B are written over A. `body` is also initialised from `initial` only on mount, so a changed `initial` prop is ignored. And the cleanup only clears the interval: the up-to-three seconds of typing since the last tick is discarded on every navigation and tab close, which is the exact problem this change was written to solve.",
+          "Outside the changed lines, and the reason a diff review is worth paying for. `docId` is read from the closure of an effect with no dependencies, so navigating from document A to document B — without a `key` forcing a remount — keeps A's `body` in state *and* keeps PUTing to A's id: edits to B are written over A. `body` is also initialized from `initial` only on mount, so a changed `initial` prop is ignored. And the cleanup only clears the interval: the up-to-three seconds of typing since the last tick is discarded on every navigation and tab close, which is the exact problem this change was written to solve.",
         fix:
           "Put `docId` and `body` in the dependency list (or key the component on `docId`), and flush a final save in the cleanup and on `visibilitychange`.",
       },
@@ -863,7 +863,7 @@ export const DRILLS_BATCH_B: Drill[] = [
         signal: "silent",
         severity: "blocker",
         body:
-          "Nothing ever sets `inflight` back to `null`. The first mint's promise is memoised for the life of the process, so once the token passes its expiry the freshness test fails, `if (!this.inflight)` is false, and `await this.inflight` resolves the *original, expired* token — forever. Every outbound call then presents an expired credential and every downstream starts returning 401 about an hour after each deploy, from a process that is otherwise healthy. No test run lasts longer than a token lifetime, so this is invisible until it is in production, at which point it looks like an identity-provider problem.",
+          "Nothing ever sets `inflight` back to `null`. The first mint's promise is memoized for the life of the process, so once the token passes its expiry the freshness test fails, `if (!this.inflight)` is false, and `await this.inflight` resolves the *original, expired* token — forever. Every outbound call then presents an expired credential and every downstream starts returning 401 about an hour after each deploy, from a process that is otherwise healthy. No test run lasts longer than a token lifetime, so this is invisible until it is in production, at which point it looks like an identity-provider problem.",
         fix: "`try { return await this.inflight } finally { this.inflight = null }` — and clear it in `invalidate` too.",
       },
       {

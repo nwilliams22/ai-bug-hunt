@@ -3,7 +3,7 @@ import type { Gotcha, Lang } from "../types";
 /**
  * Language-specific traps, weighted toward the ones that generated code lands on
  * repeatedly. Each is a thing to *check for*, not a style opinion: every entry
- * changes behaviour.
+ * changes behavior.
  */
 export const GOTCHAS: Gotcha[] = [
   /* --------------------------------- Python --------------------------------- */
@@ -293,7 +293,7 @@ export const GOTCHAS: Gotcha[] = [
     family: "failure",
     title: "String-built queries",
     body: "Any query assembled by concatenation is an injection unless every input is provably not attacker-controlled — and that proof does not survive refactoring. Generated code reaches for f-strings because they are shorter.",
-    fix: "Parameterised queries, always, including for the 'safe' internal ones",
+    fix: "Parameterized queries, always, including for the 'safe' internal ones",
   },
 
   /* ----------------------------------- Rust --------------------------------- */
@@ -415,8 +415,8 @@ export const GOTCHAS: Gotcha[] = [
     id: "go-map-order",
     lang: "Go",
     family: "contract",
-    title: "Map iteration order is deliberately randomised",
-    body: "Code that produces output from a map range is non-deterministic between runs. Tests that happen to pass once will fail later, and serialised output differs run to run.",
+    title: "Map iteration order is deliberately randomized",
+    body: "Code that produces output from a map range is non-deterministic between runs. Tests that happen to pass once will fail later, and serialized output differs run to run.",
     fix: "Collect the keys, sort them, then range over the sorted slice",
   },
 
@@ -493,7 +493,7 @@ export const GOTCHAS: Gotcha[] = [
     family: "time",
     title: "LINQ is deferred and can be enumerated twice",
     body: "Where() executes nothing. A Count() inside a log line runs the whole query, and returning the sequence runs it again in the caller — two round trips, or, on a one-shot sequence, a correct count and an empty result.",
-    fix: "Materialise once with ToList()",
+    fix: "Materialize once with ToList()",
   },
   {
     id: "cs-context-disposed",
@@ -501,7 +501,7 @@ export const GOTCHAS: Gotcha[] = [
     family: "failure",
     title: "A deferred query outliving its DbContext",
     body: "Returning IEnumerable from a scoped service means the query runs wherever the caller iterates — potentially after disposal, throwing ObjectDisposedException from a stack frame unrelated to the cause.",
-    fix: "Materialise before returning, or make the lifetime contract explicit",
+    fix: "Materialize before returning, or make the lifetime contract explicit",
   },
   {
     id: "cs-async-void",
@@ -524,7 +524,7 @@ export const GOTCHAS: Gotcha[] = [
     lang: "C#",
     family: "contract",
     title: "Nullable reference types are compile-time only",
-    body: "A non-nullable string can hold null at runtime whenever the value crosses a boundary the compiler cannot see — deserialisation, reflection, or a library compiled without the feature.",
+    body: "A non-nullable string can hold null at runtime whenever the value crosses a boundary the compiler cannot see — deserialization, reflection, or a library compiled without the feature.",
     fix: "Validate at the boundary; do not treat the annotation as a guarantee",
   },
   {
@@ -658,7 +658,7 @@ export const GOTCHAS: Gotcha[] = [
     lang: "C++",
     family: "state",
     title: "push_back invalidates every iterator, pointer and reference",
-    body: "A single reallocation makes every previously taken reference dangle — including one captured before the loop as `auto& first = v[0]`. erase() invalidates everything from the erase point on. Both are undefined behaviour that a small test never triggers because the reserve happened to be large enough.",
+    body: "A single reallocation makes every previously taken reference dangle — including one captured before the loop as `auto& first = v[0]`. erase() invalidates everything from the erase point on. Both are undefined behavior that a small test never triggers because the reserve happened to be large enough.",
     fix: "Re-index rather than holding references, or reserve() before the loop and say why in a comment.",
   },
   {
@@ -671,12 +671,12 @@ export const GOTCHAS: Gotcha[] = [
     fix: "Capture by value, or [self = shared_from_this()] when the callback can outlive the object.",
   },
   {
-    id: "cpp-uninitialised-member",
+    id: "cpp-uninitialized-member",
     lang: "C++",
     family: "boundary",
-    title: "An uninitialised scalar member",
-    body: "`int count;` in a class body has an indeterminate value until assigned. Reading it is undefined behaviour, and in practice it is often zero in a debug build and garbage under optimisation — the worst possible split, because the test suite passes.",
-    fix: "int count = 0; — default member initialisers for every scalar, every time.",
+    title: "An uninitialized scalar member",
+    body: "`int count;` in a class body has an indeterminate value until assigned. Reading it is undefined behavior, and in practice it is often zero in a debug build and garbage under optimization — the worst possible split, because the test suite passes.",
+    fix: "int count = 0; — default member initializers for every scalar, every time.",
   },
   {
     id: "cpp-use-after-move",
@@ -726,14 +726,14 @@ export const GOTCHAS: Gotcha[] = [
     family: "contract",
     title: "Extension functions dispatch statically",
     body: "An extension is resolved from the *declared* type of the receiver, not its runtime class. An extension on Animal is called even when the value is a Dog and an extension on Dog exists. It reads exactly like an overridable method and is not one.",
-    fix: "Use a real member function when the behaviour must vary by subtype.",
+    fix: "Use a real member function when the behavior must vary by subtype.",
   },
   {
     id: "kt-globalscope-launch",
     lang: "Kotlin",
     family: "failure",
     title: "GlobalScope.launch drops exceptions and ignores cancellation",
-    body: "A coroutine launched in GlobalScope is tied to nothing: the caller cannot await it, an exception goes to the (usually absent) handler and vanishes, and cancelling the request that started it has no effect. It is the Kotlin spelling of async void.",
+    body: "A coroutine launched in GlobalScope is tied to nothing: the caller cannot await it, an exception goes to the (usually absent) handler and vanishes, and canceling the request that started it has no effect. It is the Kotlin spelling of async void.",
     fix: "Launch in a scope with a lifecycle, and use async/await when the result matters.",
   },
   {
@@ -783,7 +783,7 @@ export const GOTCHAS: Gotcha[] = [
     lang: "Ruby",
     family: "state",
     title: "||= re-runs whenever the value is false or nil",
-    body: "`@enabled ||= expensive_check` memoises everything except false — which is the answer the check most often gives. So the expensive call happens on every access for exactly the objects where it returns false, and a method that looks memoised is not.",
+    body: "`@enabled ||= expensive_check` memoizes everything except false — which is the answer the check most often gives. So the expensive call happens on every access for exactly the objects where it returns false, and a method that looks memoized is not.",
     fix: "defined?(@enabled) ? @enabled : (@enabled = expensive_check)",
   },
   {
@@ -859,7 +859,7 @@ export const GOTCHAS: Gotcha[] = [
     family: "contract",
     title: "array_filter preserves keys, so json_encode emits an object",
     body: 'Filtering [0=>a, 1=>b, 2=>c] down to the middle element leaves the key 1 in place. json_encode then produces {"1":"b"} rather than ["b"], and the client — which is typed to expect an array — breaks on a response that is valid JSON. It only shows up when the *first* element is the one filtered out.',
-    fix: "array_values(array_filter(...)) whenever the result is serialised as a list.",
+    fix: "array_values(array_filter(...)) whenever the result is serialized as a list.",
   },
   {
     id: "php-foreach-reference",

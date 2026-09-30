@@ -140,7 +140,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Bare date literal coerced against a `timestamptz` column",
         where: "line 4, `'2026-01-01'` vs a `timestamptz` column",
-        body: "Postgres coerces the date to `2026-01-01 00:00:00`, but in what time zone depends on column type and session settings. Reports built this way drift by a day at month boundaries. Fix: compare against an explicit timestamptz, parameterised rather than inlined.",
+        body: "Postgres coerces the date to `2026-01-01 00:00:00`, but in what time zone depends on column type and session settings. Reports built this way drift by a day at month boundaries. Fix: compare against an explicit timestamptz, parameterized rather than inlined.",
       },
     ],
   },
@@ -207,7 +207,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Uppercase TLDs are rejected",
         where: "line 3, `[a-z]{2,}` (no `re.IGNORECASE`)",
-        body: "`USER@EXAMPLE.COM` fails validation because the TLD character class is lowercase only. Email domains are case-insensitive, so this rejects legitimate addresses and will look to support like an intermittent bug — it depends on how the user typed the domain. Fix: add `re.IGNORECASE` or normalise to lowercase before matching.",
+        body: "`USER@EXAMPLE.COM` fails validation because the TLD character class is lowercase only. Email domains are case-insensitive, so this rejects legitimate addresses and will look to support like an intermittent bug — it depends on how the user typed the domain. Fix: add `re.IGNORECASE` or normalize to lowercase before matching.",
       },
       {
         title: "Non-string input raises `TypeError` rather than returning `False`",
@@ -248,7 +248,7 @@ const REVIEWS: Record<number, ModelReview> = {
       "The goroutines write to a shared map with no mutex. Go's runtime detects this and aborts the process with `fatal error: concurrent map writes` — a fatal error, not a panic: `recover()` cannot catch it. It's also probabilistic, so it passes review and CI and takes the service down under real load.",
     findings: [
       {
-        title: "Concurrent writes to an unsynchronised map",
+        title: "Concurrent writes to an unsynchronized map",
         where: "line 14, `results[u] = resp.StatusCode` from N goroutines",
         body: "Every goroutine writes to the shared `results` map with no lock. Go's runtime detects concurrent map writes and aborts with a `fatal error` — not a panic, so `recover()` cannot catch it and no deferred cleanup runs. It is probabilistic: two URLs will almost never trip it. Passes review, passes CI, takes the service down under real load. Fix: guard with `sync.Mutex`, use `sync.Map`, or funnel results through a channel.",
       },
@@ -303,12 +303,12 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "The sequence is enumerated twice, and a single-read source fails on the second pass",
         where: "line 4, `.Count()` (first enumeration) and line 5, `return large` (second enumeration by the caller)",
-        body: "`Where()` builds an `IQueryable` that has not yet run. `.Count()` forces a full enumeration to count, then returning `large` hands the caller a query they will enumerate again. Against a database: two round trips. Against a `yield`-return iterator over a stream or a network reader: the second enumeration throws or yields nothing, so the log says 'Found 40 large orders' and the caller receives zero. Fix: materialise once — `var large = orders.Where(…).ToList();` — then `large.Count` and `return large`.",
+        body: "`Where()` builds an `IQueryable` that has not yet run. `.Count()` forces a full enumeration to count, then returning `large` hands the caller a query they will enumerate again. Against a database: two round trips. Against a `yield`-return iterator over a stream or a network reader: the second enumeration throws or yields nothing, so the log says 'Found 40 large orders' and the caller receives zero. Fix: materialize once — `var large = orders.Where(…).ToList();` — then `large.Count` and `return large`.",
       },
       {
         title: "Deferred execution escapes the lifetime of its `DbContext`",
         where: "line 5, `return large` — the query executes wherever the caller iterates it",
-        body: "If `orders` is an EF `DbSet`, the returned `IQueryable` runs on the first iteration. If the caller iterates after the request-scoped `DbContext` has been disposed, the iteration throws `ObjectDisposedException` from a stack frame in the view layer. The investigation starts in the wrong file. Fix: materialise before returning.",
+        body: "If `orders` is an EF `DbSet`, the returned `IQueryable` runs on the first iteration. If the caller iterates after the request-scoped `DbContext` has been disposed, the iteration throws `ObjectDisposedException` from a stack frame in the view layer. The investigation starts in the wrong file. Fix: materialize before returning.",
       },
       {
         title: "A log line performs the expensive work",
@@ -448,12 +448,12 @@ const REVIEWS: Record<number, ModelReview> = {
   18: {
     verdict: "request-changes",
     reason:
-      "This is a silent behaviour change for every existing caller: before, a reduced override section cleared fields; after, the omitted keys survive from base. No version bump, no docstring change, no test — and callers relying on the old clear-on-override semantics will break silently.",
+      "This is a silent behavior change for every existing caller: before, a reduced override section cleared fields; after, the omitted keys survive from base. No version bump, no docstring change, no test — and callers relying on the old clear-on-override semantics will break silently.",
     findings: [
       {
-        title: "Silent behaviour change for every existing caller",
+        title: "Silent behavior change for every existing caller",
         where: "the diff as a whole: `result.update(override)` replaced with recursive merge",
-        body: "Before the change, `override = {'db': {'host': 'x'}}` replaced the entire `db` section, so any key the override omitted was gone in the result. After it, the omitted keys survive from base. Callers written against the old behaviour — any caller passing a deliberately reduced section to clear fields — now silently stop clearing them. Flagging the compatibility break is the primary finding of this review. Fix: update the docstring, add tests covering both shapes, and provide an explicit way to replace a subtree wholesale.",
+        body: "Before the change, `override = {'db': {'host': 'x'}}` replaced the entire `db` section, so any key the override omitted was gone in the result. After it, the omitted keys survive from base. Callers written against the old behavior — any caller passing a deliberately reduced section to clear fields — now silently stop clearing them. Flagging the compatibility break is the primary finding of this review. Fix: update the docstring, add tests covering both shapes, and provide an explicit way to replace a subtree wholesale.",
       },
       {
         title: "Unbounded recursion on deep or self-referential config",
@@ -463,7 +463,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Dicts are merged and lists are replaced, with nothing saying so",
         where: "line 6, `isinstance(value, dict)` — lists take the `else` branch and are replaced",
-        body: "Appending one item to a list in the override wipes out the other entries. That is a real design decision — most config systems land on it — but it is now undocumented behaviour that a user will discover when they lose data. Fix: state the list policy in the docstring.",
+        body: "Appending one item to a list in the override wipes out the other entries. That is a real design decision — most config systems land on it — but it is now undocumented behavior that a user will discover when they lose data. Fix: state the list policy in the docstring.",
       },
       {
         title: "Shallow copy still aliases the caller's data (pre-existing)",
@@ -473,7 +473,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`isinstance(dict)` misses custom `Mapping` types (nit)",
         where: "line 6, `isinstance(value, dict)` and `isinstance(result.get(key), dict)`",
-        body: "Config loaders can return custom `Mapping` types that do not subclass `dict`. Those take the `else` branch and replace instead of merging, so behaviour depends on which YAML library produced the object. Fix: test against `collections.abc.Mapping`.",
+        body: "Config loaders can return custom `Mapping` types that do not subclass `dict`. Those take the `else` branch and replace instead of merging, so behavior depends on which YAML library produced the object. Fix: test against `collections.abc.Mapping`.",
       },
     ],
   },
@@ -580,7 +580,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Integer division truncates, picking a rounding rule nobody chose (minor)",
         where: "line 20, `discount = subtotal * percent / 100` — integer division in Ruby when both operands are integers",
-        body: "10% of 1999 cents is `1999 * 10 / 100 = 199`, not 200. Consistently in the merchant's favour; disagrees with the finance spec at every amount that is not a multiple of 10. Fix: `(subtotal * percent).fdiv(100).round` with the direction stated.",
+        body: "10% of 1999 cents is `1999 * 10 / 100 = 199`, not 200. Consistently in the merchant's favor; disagrees with the finance spec at every amount that is not a multiple of 10. Fix: `(subtotal * percent).fdiv(100).round` with the direction stated.",
       },
     ],
   },
@@ -646,7 +646,7 @@ const REVIEWS: Record<number, ModelReview> = {
         body: "The elvis operator only covers the null case (the key being absent). `\"three\".toInt()` throws `NumberFormatException`, which is not null, so the default never applies. The line advertises tolerance for bad input and delivers a stack trace naming neither the key nor the file. Fix: `merged[\"attempts\"]?.toIntOrNull() ?: 3`.",
       },
       {
-        title: "Process-wide `HashMap` mutated with no synchronisation",
+        title: "Process-wide `HashMap` mutated with no synchronization",
         where: "line 14, `private val cache = HashMap<String, RetryPolicy>()` in a `object` (singleton)",
         body: "`object` makes this a process-wide singleton. `HashMap` is not thread-safe. Two threads calling `load()` concurrently both miss, both parse, and both `put` — the work is duplicated and one policy is silently discarded. A concurrent `put` during a resize can also lose unrelated entries. Fix: `ConcurrentHashMap` with `computeIfAbsent`.",
       },
@@ -677,7 +677,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "The comparator never returns 0",
         where: "line 32, `(x, y) => (x.email > y.email ? 1 : -1)`",
-        body: "The comparator claims every pair is strictly ordered, including equal pairs. An inconsistent comparator is undefined behaviour for `sort`: V8's TimSort can produce an order that is not merely unstable but wrong, moving unrelated elements. It is also a raw UTF-16 code-unit comparison, so accented and non-Latin addresses sort in an order no user recognises. Fix: `x.email.localeCompare(y.email)`.",
+        body: "The comparator claims every pair is strictly ordered, including equal pairs. An inconsistent comparator is undefined behavior for `sort`: V8's TimSort can produce an order that is not merely unstable but wrong, moving unrelated elements. It is also a raw UTF-16 code-unit comparison, so accented and non-Latin addresses sort in an order no user recognizes. Fix: `x.email.localeCompare(y.email)`.",
       },
       {
         title: "The natural fix (`Promise.all` over `accounts.map`) introduces unbounded concurrency",
@@ -706,17 +706,17 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`ctx` is accepted and never used",
         where: "lines 17, 25 — `ctx` threaded into `worker` and then ignored",
-        body: "The signature promises a cancellable, deadline-aware operation. The body threads `ctx` into `worker` and ignores it there too. A caller who cancels gets nothing — the pool runs every id to completion and the goroutines outlive the request. A context parameter that is not selected on is worse than no parameter, because it advertises a guarantee the code does not provide. Fix: `select` on `ctx.Done()` in both the job loop and the result send.",
+        body: "The signature promises a cancelable, deadline-aware operation. The body threads `ctx` into `worker` and ignores it there too. A caller who cancels gets nothing — the pool runs every id to completion and the goroutines outlive the request. A context parameter that is not selected on is worse than no parameter, because it advertises a guarantee the code does not provide. Fix: `select` on `ctx.Done()` in both the job loop and the result send.",
       },
       {
         title: "The timeout abandons the work rather than stopping it",
         where: "lines 61–62, the `time.After(5s)` branch — the goroutine running `fn` is still running",
-        body: "On the timeout path, `fn` is still executing. Its side effects land after the caller has been told 'timeout on X'. A retry of the same id runs `fn` twice concurrently — two writes, two charges, two emails. `time.After` also allocates a timer per job that is not collected until it fires. Fix: give `fn` a context with a deadline and make it honour cancellation; use a timer you can `Stop()`.",
+        body: "On the timeout path, `fn` is still executing. Its side effects land after the caller has been told 'timeout on X'. A retry of the same id runs `fn` twice concurrently — two writes, two charges, two emails. `time.After` also allocates a timer per job that is not collected until it fires. Fix: give `fn` a context with a deadline and make it honor cancellation; use a timer you can `Stop()`.",
       },
       {
         title: "No aggregate outcome, and a library writing to stdout (minor)",
         where: "line 42, `fmt.Printf(\"processed %d of %d\\n\", …)`",
-        body: "There is no way to express 'the run was cancelled' or 'the pool itself failed' — the caller infers it from a short slice. `fmt.Printf` from a package means the library cannot be embedded in anything with a log format. Fix: return `([]Result, error)` and take a `*slog.Logger`, or print at the call site.",
+        body: "There is no way to express 'the run was canceled' or 'the pool itself failed' — the caller infers it from a short slice. `fmt.Printf` from a package means the library cannot be embedded in anything with a log format. Fix: return `([]Result, error)` and take a `*slog.Logger`, or print at the call site.",
       },
     ],
   },
@@ -769,12 +769,12 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`useCallback`'s dependency array omits `onDone`",
         where: "line 26, `}, [jobId])` — `tick` closes over `onDone`, which is not in the array",
-        body: "`tick` is memoised on `[jobId]` but closes over `onDone`, which `JobPanel` recreates on every render (line 44, `onDone={(b) => setLog([...log, …])}`). So `tick` keeps the very first `onDone` forever, and that closure captured the very first `log` — the empty array. Every completion runs `setLog([...[], entry])`, so the log never holds more than one line and which line it holds depends on completion order. Fix: keep `onDone` in a ref updated each render and use the functional form: `setLog((l) => [...l, entry])`.",
+        body: "`tick` is memoized on `[jobId]` but closes over `onDone`, which `JobPanel` recreates on every render (line 44, `onDone={(b) => setLog([...log, …])}`). So `tick` keeps the very first `onDone` forever, and that closure captured the very first `log` — the empty array. Every completion runs `setLog([...[], entry])`, so the log never holds more than one line and which line it holds depends on completion order. Fix: keep `onDone` in a ref updated each render and use the functional form: `setLog((l) => [...l, entry])`.",
       },
       {
         title: "`res.ok` is never checked before `res.json()`",
         where: "lines 14–15, `const res = await fetch(…)`, `const body = await res.json()`",
-        body: "A 500 with an HTML error body throws a `SyntaxError`, which lands in `setError` as a JSON parsing problem — the operator sees 'Unexpected token <' instead of 'the job service is down'. A 404 that returns valid JSON is worse: `body.status` is `undefined`, which is neither 'succeeded' nor 'failed', so the poller schedules itself again indefinitely. Fix: `if (!res.ok) throw new Error(…)`, and treat an unrecognised status as terminal.",
+        body: "A 500 with an HTML error body throws a `SyntaxError`, which lands in `setError` as a JSON parsing problem — the operator sees 'Unexpected token <' instead of 'the job service is down'. A 404 that returns valid JSON is worse: `body.status` is `undefined`, which is neither 'succeeded' nor 'failed', so the poller schedules itself again indefinitely. Fix: `if (!res.ok) throw new Error(…)`, and treat an unrecognized status as terminal.",
       },
       {
         title: "The `catch` path stops polling permanently with no backoff",
@@ -784,7 +784,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`key={i}` on a list whose items come and go (major)",
         where: "line 41, `<li key={i}>`",
-        body: "React identifies children by key. With an index key, removing the first job shifts every subsequent one onto its neighbour's key. The `JobRow` instance — and the hook state inside it, including the in-flight poll for a different `jobId` — is reused for the wrong job. The symptom is one job's status appearing on another row, which reads as a backend bug. Fix: `key={job.id}`.",
+        body: "React identifies children by key. With an index key, removing the first job shifts every subsequent one onto its neighbor's key. The `JobRow` instance — and the hook state inside it, including the in-flight poll for a different `jobId` — is reused for the wrong job. The symptom is one job's status appearing on another row, which reads as a backend bug. Fix: `key={job.id}`.",
       },
     ],
   },
@@ -806,7 +806,7 @@ const REVIEWS: Record<number, ModelReview> = {
         body: "`options=None` is hashable, so the default path caches fine. The moment a caller passes `{'rush': True}` — the new feature the diff was written to support — it raises `TypeError: unhashable type: 'dict'`. The new feature and the new cache are mutually exclusive, and the happy path (no options) is the one that works, so a smoke test passes. Fix: take the option as a keyword-only bool (`rush: bool = False`) or a `frozenset` of flags.",
       },
       {
-        title: "Memoising a method pins every instance in memory",
+        title: "Memoizing a method pins every instance in memory",
         where: "the `@lru_cache` on `quote` holds a strong reference to `self`",
         body: "The cache holds a strong reference to `self`, so no `PricingEngine` is ever garbage-collected. In a request-scoped or tenant-scoped design that is an unbounded leak that looks like a slow memory climb with no single culprit. Cache hits are also decided by instance identity, so two engines built from identical rate cards share nothing. Fix: move the cached computation to a free function that takes only value types.",
       },
@@ -861,15 +861,15 @@ const REVIEWS: Record<number, ModelReview> = {
   30: {
     verdict: "request-changes",
     reason:
-      "`async void` on line 15 returns no `Task`, so the caller cannot await it or catch anything it throws. `Manifest()` called immediately after reads a list that is still being filled. Any exception is raised on the captured context — on .NET Core with no synchronisation context it goes to the thread pool and terminates the process, with a stack that does not include the call site.",
+      "`async void` on line 15 returns no `Task`, so the caller cannot await it or catch anything it throws. `Manifest()` called immediately after reads a list that is still being filled. Any exception is raised on the captured context — on .NET Core with no synchronization context it goes to the thread pool and terminates the process, with a stack that does not include the call site.",
     findings: [
       {
         title: "`async void` — no `Task` to await, no exception to catch, manifest read before it is complete",
         where: "line 15, `public async void UploadAll(…)`",
-        body: "Control returns to the caller at the first `await` — line 23, `await Task.WhenAll(tasks)` — before all uploads have finished. `Manifest()` called on the next line (line 41) reads a list still in flight. Any exception in `UploadOne` is uncatchable by the caller and, on .NET Core with no synchronisation context, goes to the thread pool and terminates the process long after the call site, with a stack that does not name the caller. Fix: `public async Task UploadAllAsync(…)` — `async void` is only correct for an event handler.",
+        body: "Control returns to the caller at the first `await` — line 23, `await Task.WhenAll(tasks)` — before all uploads have finished. `Manifest()` called on the next line (line 41) reads a list still in flight. Any exception in `UploadOne` is uncatchable by the caller and, on .NET Core with no synchronization context, goes to the thread pool and terminates the process long after the call site, with a stack that does not name the caller. Fix: `public async Task UploadAllAsync(…)` — `async void` is only correct for an event handler.",
       },
       {
-        title: "Concurrent `List<string>.Add` from many tasks without synchronisation",
+        title: "Concurrent `List<string>.Add` from many tasks without synchronization",
         where: "line 36, `_uploaded.Add(path)` from N concurrent `UploadOne` tasks",
         body: "`List<T>` is not thread-safe. Concurrent `Add` calls race on the count and backing array, so entries are silently overwritten and a resize can throw `IndexOutOfRangeException` from inside the framework. The manifest is short by an amount that varies per run, and a short manifest is indistinguishable from files that genuinely failed to upload — which is what the manifest exists to tell you. Fix: return the path from `UploadOne` and collect the results of `Task.WhenAll`, or use `ConcurrentBag<string>`.",
       },
@@ -881,7 +881,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "The object key is `Path.GetFileName(path)`, not the full path",
         where: "line 32, `var url = $\"https://{bucket}.example.com/{Path.GetFileName(path)}\"`",
-        body: "`Path.GetFileName(\"2024/report.csv\")` and `Path.GetFileName(\"2025/report.csv\")` are both `\"report.csv\"`. The second upload overwrites the first, both return 200, both are added to the manifest, and the run reports two files uploaded. The data loss is complete, silent, and confirmed by the log. Fix: key on the path relative to the upload root, normalised and URI-escaped.",
+        body: "`Path.GetFileName(\"2024/report.csv\")` and `Path.GetFileName(\"2025/report.csv\")` are both `\"report.csv\"`. The second upload overwrites the first, both return 200, both are added to the manifest, and the run reports two files uploaded. The data loss is complete, silent, and confirmed by the log. Fix: key on the path relative to the upload root, normalized and URI-escaped.",
       },
     ],
   },
@@ -924,7 +924,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`static` caches the table against the first state seen",
         where: "lines 22–26, `static $rates = null;` … `$rates[$state] = $rates[$state] ?? 0.0;`",
-        body: "A `static` local in PHP is initialised once and then persists for the life of the process, not the call. The `$rates[$state] ?? 0.0` line therefore runs for the *first* cart only, so a later cart shipping to a state absent from `TAX` — say `'TX'` — reads an undefined key: PHP 8 emits a warning and evaluates it to `null`, `1 + null` is 1, and the cart ships untaxed. Under FPM, where the process is usually fresh, this never reproduces; under a persistent worker (Swoole, Road Runner, a queue consumer) it depends on the order carts arrive in. Fix: drop `static` — the const is already built once — and look the rate up with an explicit `array_key_exists` check that throws on an unknown state.",
+        body: "A `static` local in PHP is initialized once and then persists for the life of the process, not the call. The `$rates[$state] ?? 0.0` line therefore runs for the *first* cart only, so a later cart shipping to a state absent from `TAX` — say `'TX'` — reads an undefined key: PHP 8 emits a warning and evaluates it to `null`, `1 + null` is 1, and the cart ships untaxed. Under FPM, where the process is usually fresh, this never reproduces; under a persistent worker (Swoole, Road Runner, a queue consumer) it depends on the order carts arrive in. Fix: drop `static` — the const is already built once — and look the rate up with an explicit `array_key_exists` check that throws on an unknown state.",
       },
       {
         title: "The coupon percentage is never clamped",
@@ -934,7 +934,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`(int)` truncates a float total",
         where: "line 37, `return (int) ($subtotal * (1 + $rates[$state]));`",
-        body: "`$subtotal * $coupon / 100` turns an int subtotal into a float, and `(int)` truncates toward zero rather than rounding. A cart of 1999 cents with a 10% coupon is 1799.1, taxed to 1956.61, truncated to 1956 — a cent below the correct 1957. The itemised receipt rounds each line and disagrees with this number, and the difference is a cent, which is exactly small enough for nobody to file a bug and exactly large enough for the payment processor's reconciliation to fail. Fix: stay in integer cents (`intdiv`) and round the tax with the direction stated.",
+        body: "`$subtotal * $coupon / 100` turns an int subtotal into a float, and `(int)` truncates toward zero rather than rounding. A cart of 1999 cents with a 10% coupon is 1799.1, taxed to 1956.61, truncated to 1956 — a cent below the correct 1957. The itemized receipt rounds each line and disagrees with this number, and the difference is a cent, which is exactly small enough for nobody to file a bug and exactly large enough for the payment processor's reconciliation to fail. Fix: stay in integer cents (`intdiv`) and round the tax with the direction stated.",
       },
     ],
   },
@@ -958,7 +958,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "The cache is keyed on the millisecond and never bounded",
         where: "lines 16 and 19, `cache.getOrPut(at.time)` on an unbounded `mutableMapOf`",
-        body: "`cache.getOrPut(at.time)` keys on the exact epoch millisecond, so two renders of the same invoice share an entry only if their `Date` objects are millisecond-identical. The map is an unbounded `HashMap` written from many threads with no synchronisation, so it grows for the life of the process and a concurrent resize can lose entries or spin. Note the trap in the obvious fix: keying on the *day* makes the formatter almost never run, which masks the thread-safety defect above until production traffic finds it. Fix: drop the cache — `DateTimeFormatter.format` is cheap — or use a bounded, concurrent cache keyed on the value you actually want to reuse.",
+        body: "`cache.getOrPut(at.time)` keys on the exact epoch millisecond, so two renders of the same invoice share an entry only if their `Date` objects are millisecond-identical. The map is an unbounded `HashMap` written from many threads with no synchronization, so it grows for the life of the process and a concurrent resize can lose entries or spin. Note the trap in the obvious fix: keying on the *day* makes the formatter almost never run, which masks the thread-safety defect above until production traffic finds it. Fix: drop the cache — `DateTimeFormatter.format` is cheap — or use a bounded, concurrent cache keyed on the value you actually want to reuse.",
       },
       {
         title: "The payment window is measured in fixed 24-hour days",
@@ -1040,7 +1040,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`Remove` shifts the vector and leaves `index_` stale",
         where: "line 37, `sessions_.erase(sessions_.begin() + it->second)`",
-        body: "Erasing one element moves every later element down a slot, but only the removed key is erased from `index_`. Every session added after the removed one now maps to its neighbour's slot, so `Find` returns the **wrong session** — a message is delivered to the wrong user's socket, with a right-looking id. The registry keeps working and `Count()` stays correct, so the defect scales silently with the number of disconnects that have happened. Fix: swap-and-pop and repair the moved element's index entry, or key the container on the id and keep a separate stable list.",
+        body: "Erasing one element moves every later element down a slot, but only the removed key is erased from `index_`. Every session added after the removed one now maps to its neighbor's slot, so `Find` returns the **wrong session** — a message is delivered to the wrong user's socket, with a right-looking id. The registry keeps working and `Count()` stays correct, so the defect scales silently with the number of disconnects that have happened. Fix: swap-and-pop and repair the moved element's index entry, or key the container on the id and keep a separate stable list.",
       },
       {
         title: "`Find`, `All` and `Count` take no lock",
@@ -1067,9 +1067,9 @@ const REVIEWS: Record<number, ModelReview> = {
         body: "`gateway.charge` carries no idempotency key, so the gateway cannot tell attempt two from a second purchase. The failure this retry exists for is a *timeout*, and a timeout is precisely the case where the charge may already have succeeded — we lost the response, not the request. Three attempts can move the money three times, and because only the final `result.reference` is written, the duplicates do not exist in our own data at all. The first evidence is a chargeback. Fix: generate an idempotency key per logical charge, pass it on every attempt, and persist it *before* the first call so a retry after a crash reuses it.",
       },
       {
-        title: "Every existing call site silently acquires retry behaviour",
+        title: "Every existing call site silently acquires retry behavior",
         where: "line 14, `def charge_customer(..., attempts: int = 3)`",
-        body: "The signature defaults `attempts` to 3, so every call site — including a bulk payout job — now triple-waits and triple-exposes itself to the duplicate-charge path above with no review of whether retry is safe there. And the `Charge` row is still created *after* the gateway call, outside any transaction with it, so a process death in that window moves money with no local record; the retry loop widens that window from one call to three plus the sleep. Neither an idempotency-key column nor a migration appears in this change. Fix: make the new behaviour opt-in at each call site, and write an intent row with the idempotency key before the first gateway call so a crash is recoverable.",
+        body: "The signature defaults `attempts` to 3, so every call site — including a bulk payout job — now triple-waits and triple-exposes itself to the duplicate-charge path above with no review of whether retry is safe there. And the `Charge` row is still created *after* the gateway call, outside any transaction with it, so a process death in that window moves money with no local record; the retry loop widens that window from one call to three plus the sleep. Neither an idempotency-key column nor a migration appears in this change. Fix: make the new behavior opt-in at each call site, and write an intent row with the idempotency key before the first gateway call so a crash is recoverable.",
       },
       {
         title: "A hard decline is retried like a timeout",
@@ -1079,7 +1079,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Blocking sleep with no jitter, in a request path",
         where: "line 27, `time.sleep(2 ** attempt)`",
-        body: "`time.sleep` blocks the worker for 1 then 2 seconds, so the worst case adds three seconds to a request that is going to fail anyway — long enough for the client to time out and, if it retries, to start the whole thing over from the top. There is no jitter, so a gateway blip backs every in-flight request off by the same amount and they all return together: the recovery attempt is a synchronised thundering herd aimed at a dependency that is already unwell. Fix: randomised exponential backoff with a cap, an overall deadline, and the retry moved off the request thread.",
+        body: "`time.sleep` blocks the worker for 1 then 2 seconds, so the worst case adds three seconds to a request that is going to fail anyway — long enough for the client to time out and, if it retries, to start the whole thing over from the top. There is no jitter, so a gateway blip backs every in-flight request off by the same amount and they all return together: the recovery attempt is a synchronized thundering herd aimed at a dependency that is already unwell. Fix: randomized exponential backoff with a cap, an overall deadline, and the retry moved off the request thread.",
       },
       {
         title: "`attempts=0` raises `TypeError`, not the gateway error",
@@ -1152,7 +1152,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`Quote` cannot tell the caller the rate is stale",
         where: "line 55, `func (t *Table) Quote(ctx, code) (float64, bool)` — and the `Start` goroutine, lines 30–37",
-        body: "The comment promises the table is refreshed rather than serving an out-of-date rate, but when the refresh fails `Quote` returns the old value with `ok == true` and no age. A caller pricing an order has no way to decide that a rate from four hours ago is not good enough to commit to, because the signature does not carry the one fact that would let it. `Start` also leaks: the ticker is never stopped and the goroutine never selects on `ctx.Done()`, so a cancelled boot context makes every refresh fail and the goroutine lives on. Fix: return the rate's age (or an error when it exceeds a maximum), and give `Start` a `select` on `ctx.Done()` with `defer ticker.Stop()`.",
+        body: "The comment promises the table is refreshed rather than serving an out-of-date rate, but when the refresh fails `Quote` returns the old value with `ok == true` and no age. A caller pricing an order has no way to decide that a rate from four hours ago is not good enough to commit to, because the signature does not carry the one fact that would let it. `Start` also leaks: the ticker is never stopped and the goroutine never selects on `ctx.Done()`, so a canceled boot context makes every refresh fail and the goroutine lives on. Fix: return the rate's age (or an error when it exceeds a maximum), and give `Start` a `select` on `ctx.Done()` with `defer ticker.Stop()`.",
       },
     ],
   },
@@ -1234,7 +1234,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "The window is measured on the wall clock",
         where: "lines 10 and 13, `Date.now()`",
-        body: "`Date.now()` is subject to NTP correction, a manual clock change and a VM's clock resync after a live migration. A backwards step larger than `windowMs` makes `now - bucket.start` negative, so `> windowMs` is false and no bucket in the process ever resets again: every key is stuck at whatever count it had reached, and every caller over the limit stays over it. `retryAfter` returns a negative number in the same situation, which serialises into a `Retry-After` header clients handle in whatever way they feel like. Fix: measure elapsed time from a monotonic source (`performance.now()` or `process.hrtime.bigint()`), and clamp `retryAfter` to `>= 0`.",
+        body: "`Date.now()` is subject to NTP correction, a manual clock change and a VM's clock resync after a live migration. A backwards step larger than `windowMs` makes `now - bucket.start` negative, so `> windowMs` is false and no bucket in the process ever resets again: every key is stuck at whatever count it had reached, and every caller over the limit stays over it. `retryAfter` returns a negative number in the same situation, which serializes into a `Retry-After` header clients handle in whatever way they feel like. Fix: measure elapsed time from a monotonic source (`performance.now()` or `process.hrtime.bigint()`), and clamp `retryAfter` to `>= 0`.",
       },
       {
         title: "One shared table, per-call limits",
@@ -1307,7 +1307,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "Nothing resets on a new document, and nothing saves on unmount",
         where: "the effect's `[]` dependency list (line 34) and cleanup `return () => clearInterval(timer)` (line 33)",
-        body: "Outside the changed lines, and the reason a diff review is worth paying for. `docId` is read from the closure of an effect with no dependencies, so navigating from document A to document B — without a `key` forcing a remount — keeps A's `body` in state *and* keeps PUTing to A's id: edits to B are written over A. `body` is also initialised from `initial` only on mount, so a changed `initial` prop is ignored. And the cleanup only clears the interval: up to three seconds of typing since the last tick is discarded on every navigation and tab close — the exact problem this change was written to solve. Fix: key the component on `docId`, and flush a final save in the cleanup and on `visibilitychange`.",
+        body: "Outside the changed lines, and the reason a diff review is worth paying for. `docId` is read from the closure of an effect with no dependencies, so navigating from document A to document B — without a `key` forcing a remount — keeps A's `body` in state *and* keeps PUTing to A's id: edits to B are written over A. `body` is also initialized from `initial` only on mount, so a changed `initial` prop is ignored. And the cleanup only clears the interval: up to three seconds of typing since the last tick is discarded on every navigation and tab close — the exact problem this change was written to solve. Fix: key the component on `docId`, and flush a final save in the cleanup and on `visibilitychange`.",
       },
       {
         title: "`setInterval` does not wait for the previous save",
@@ -1321,12 +1321,12 @@ const REVIEWS: Record<number, ModelReview> = {
   45: {
     verdict: "request-changes",
     reason:
-      "Nothing ever sets `inflight` back to `null`, so the first mint's promise is memoised for the life of the process — the first expired token is returned forever, and a mint that rejects at boot poisons every outbound call until a restart.",
+      "Nothing ever sets `inflight` back to `null`, so the first mint's promise is memoized for the life of the process — the first expired token is returned forever, and a mint that rejects at boot poisons every outbound call until a restart.",
     findings: [
       {
         title: "`inflight` is never cleared, so the first token is the only token",
         where: "lines 33–35, `if (!this.inflight) this.inflight = this.mint();` — with no assignment to `null` anywhere",
-        body: "Nothing ever sets `inflight` back to `null`. The first mint's promise is memoised for the life of the process, so once the token passes its expiry the freshness test at line 29 fails, `if (!this.inflight)` is false, and `await this.inflight` resolves the *original, expired* token — forever. Every outbound call then presents an expired credential and every downstream starts returning 401 about an hour after each deploy, from a process that is otherwise healthy. No test run lasts longer than a token lifetime, so this is invisible until it is in production, where it looks like an identity-provider problem. Fix: `try { return await this.inflight } finally { this.inflight = null }` — and clear it in `invalidate` too.",
+        body: "Nothing ever sets `inflight` back to `null`. The first mint's promise is memoized for the life of the process, so once the token passes its expiry the freshness test at line 29 fails, `if (!this.inflight)` is false, and `await this.inflight` resolves the *original, expired* token — forever. Every outbound call then presents an expired credential and every downstream starts returning 401 about an hour after each deploy, from a process that is otherwise healthy. No test run lasts longer than a token lifetime, so this is invisible until it is in production, where it looks like an identity-provider problem. Fix: `try { return await this.inflight } finally { this.inflight = null }` — and clear it in `invalidate` too.",
       },
       {
         title: "A rejected mint is cached and replayed forever",
@@ -1426,7 +1426,7 @@ const REVIEWS: Record<number, ModelReview> = {
   50: {
     verdict: "approve",
     reason:
-      "I checked all three things a reviewer is told to verify — awareness, conversion, and the equality boundary — before approving. The tempting finding, the classic naive `datetime` against a UTC timestamp (drill 4's defect), is already handled: `now.utcoffset() is None` is rejected and both sides are normalised with `astimezone(timezone.utc)` before the `>=` comparison, so an offset difference or a daylight-saving fold cannot slip through. Missing expiry fails closed (`return True`), which is the stated contract, and `ValueError` on a naive input is the documented caller obligation, not a bug in the code under review. Approve.",
+      "I checked all three things a reviewer is told to verify — awareness, conversion, and the equality boundary — before approving. The tempting finding, the classic naive `datetime` against a UTC timestamp (drill 4's defect), is already handled: `now.utcoffset() is None` is rejected and both sides are normalized with `astimezone(timezone.utc)` before the `>=` comparison, so an offset difference or a daylight-saving fold cannot slip through. Missing expiry fails closed (`return True`), which is the stated contract, and `ValueError` on a naive input is the documented caller obligation, not a bug in the code under review. Approve.",
     findings: [],
   },
 
@@ -1741,7 +1741,7 @@ const REVIEWS: Record<number, ModelReview> = {
       {
         title: "`continue-on-error: true` masks test failure",
         where: "`- run: npm test` with `continue-on-error: true`",
-        body: "For a failing test, `npm test` exits non-zero, but `continue-on-error: true` makes the step exit 0. The job and the workflow report success. A code change that breaks the test suite merges as a green build. The test output is in the logs, but no CI badge, no branch protection check, no required-status-check flag is set to red. Fix: remove `continue-on-error: true` from the test step; the default behaviour (a non-zero exit fails the step) is what a CI pipeline needs.",
+        body: "For a failing test, `npm test` exits non-zero, but `continue-on-error: true` makes the step exit 0. The job and the workflow report success. A code change that breaks the test suite merges as a green build. The test output is in the logs, but no CI badge, no branch protection check, no required-status-check flag is set to red. Fix: remove `continue-on-error: true` from the test step; the default behavior (a non-zero exit fails the step) is what a CI pipeline needs.",
       },
     ],
   },
@@ -1750,7 +1750,7 @@ const REVIEWS: Record<number, ModelReview> = {
   74: {
     verdict: "approve-with-comments",
     reason:
-      "The image builds and runs correctly as written: `npm ci --omit=dev` runs as root (the default user before `USER node`), installs production dependencies to `/app/node_modules`, and `USER node` switches to the unprivileged user for the runtime. The only issue is a comment that misstates the user under which the install runs — a documentation nit with no behavioural consequence.",
+      "The image builds and runs correctly as written: `npm ci --omit=dev` runs as root (the default user before `USER node`), installs production dependencies to `/app/node_modules`, and `USER node` switches to the unprivileged user for the runtime. The only issue is a comment that misstates the user under which the install runs — a documentation nit with no behavioral consequence.",
     findings: [
       {
         title: "Comment names the wrong user for the install step",

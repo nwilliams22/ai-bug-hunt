@@ -13,7 +13,7 @@ export function GotchasView({ lang }: { lang?: string }) {
       <h2 className="card-h">Language gotchas</h2>
       <p className="note">
         Traps that are specific to a language rather than to logic, weighted toward the
-        ones generated code lands on repeatedly. Every entry changes behaviour — none of
+        ones generated code lands on repeatedly. Every entry changes behavior — none of
         these are style opinions. Use it as a checklist when the code is in a language you
         review rarely.
       </p>

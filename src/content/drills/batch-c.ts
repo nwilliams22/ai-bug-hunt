@@ -139,8 +139,8 @@ export async function debit(account: string, cents: number): Promise<void> {
 
 export const DRILLS_BATCH_C: Drill[] = [
   {
-    id: 46, slug: "materialised-net-revenue", lang: "SQL", level: "Hard",
-    title: "Materialise net revenue for daily reports", shape: "diff",
+    id: 46, slug: "materialized-net-revenue", lang: "SQL", level: "Hard",
+    title: "Materialize net revenue for daily reports", shape: "diff",
     code: revenueFiles[0].code, files: revenueFiles,
     brief: "PR: replace repeated subtraction with a stored net value. The migration runs once before deployment; the unchanged insert path is included for review.",
     hintRegion: "Trace a sale inserted after the migration, then a sale exactly at the next day's start.",

@@ -15,7 +15,7 @@ import s59 from "../samples/59-cutoff.py?raw";
 /** Answer-side reasoning only: never display this before a committed review. */
 export const CLEAN_REVIEW: Record<number, { verdict: Verdict; mistakenFor: number; reason: string }> = {
   50: { verdict: "approve", mistakenFor: 4,
-    reason: "Both timestamps are checked for awareness and normalised to UTC before comparison, including across daylight-saving folds. Missing expiry fails closed and equality expires the token. Try equal instants expressed with different offsets: no naive/aware comparison remains. Filing the timezone bug from drill 4 here would ask the author to fix code that already handles it." },
+    reason: "Both timestamps are checked for awareness and normalized to UTC before comparison, including across daylight-saving folds. Missing expiry fails closed and equality expires the token. Try equal instants expressed with different offsets: no naive/aware comparison remains. Filing the timezone bug from drill 4 here would ask the author to fix code that already handles it." },
   51: { verdict: "approve", mistakenFor: 43,
     reason: "The default list is shared, but no path mutates it. copy() gives each call a fresh list; elements are immutable strings, so a shallow copy is sufficient. Call twice, mutate a returned list, and call again: the default and caller's list remain unchanged. A mutable default is a suspicion to trace, not a finding by itself." },
   52: { verdict: "approve", mistakenFor: 10,

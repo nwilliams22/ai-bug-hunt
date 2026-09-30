@@ -3,7 +3,7 @@ import type { TimedRun } from "./types";
 import { toSession } from "./timed";
 
 // The key is deliberately still v1: the shape only ever gained fields, and
-// normalise() fills them in, so a store written by an earlier build loads
+// normalize() fills them in, so a store written by an earlier build loads
 // without losing a single note.
 const KEY = "bug-finder:progress:v1";
 
@@ -18,7 +18,7 @@ export function empty(): Progress {
   return { version: 3, drills: {}, reviews: {}, lessonsRead: {}, sessions: [] };
 }
 
-export function normaliseWriteup(value: unknown): Writeup | undefined {
+export function normalizeWriteup(value: unknown): Writeup | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const result: Writeup = {};
   for (const key of ["mechanism", "input", "signal", "fix"] as const) {
@@ -28,7 +28,7 @@ export function normaliseWriteup(value: unknown): Writeup | undefined {
   return Object.keys(result).length ? result : undefined;
 }
 
-function normaliseCaught(input: unknown): Record<number, boolean> {
+function normalizeCaught(input: unknown): Record<number, boolean> {
   const caught: Record<number, boolean> = {};
   if (typeof input === "object" && input !== null) {
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
@@ -39,12 +39,12 @@ function normaliseCaught(input: unknown): Record<number, boolean> {
   return caught;
 }
 
-function normaliseVerdict(value: unknown): Verdict | undefined {
+function normalizeVerdict(value: unknown): Verdict | undefined {
   return value === "approve" || value === "approve-with-comments" || value === "request-changes"
     ? value : undefined;
 }
 
-function normaliseFalsePositives(value: unknown): number | undefined {
+function normalizeFalsePositives(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value : undefined;
 }
@@ -54,7 +54,7 @@ export function load(): Progress {
     const raw = localStorage.getItem(KEY);
     if (!raw) return empty();
     const parsed = JSON.parse(raw) as unknown;
-    return normalise(parsed);
+    return normalize(parsed);
   } catch {
     // A corrupt or unreadable store must not take the app down; the course is
     // still usable with no history.
@@ -75,7 +75,7 @@ export function save(p: Progress): void {
  * Accept anything and produce a valid Progress. Used for both localStorage
  * reads and user-supplied import files, so it has to assume nothing.
  */
-export function normalise(input: unknown): Progress {
+export function normalize(input: unknown): Progress {
   const out = empty();
   if (typeof input !== "object" || input === null) return out;
   const src = input as Record<string, unknown>;
@@ -91,11 +91,11 @@ export function normalise(input: unknown): Progress {
         revealed: d.revealed === true,
         hintLevel:
           typeof d.hintLevel === "number" ? Math.max(0, Math.min(2, d.hintLevel)) : 0,
-        caught: normaliseCaught(d.caught),
+        caught: normalizeCaught(d.caught),
         revealedAt: typeof d.revealedAt === "number" ? d.revealedAt : undefined,
-        verdict: normaliseVerdict(d.verdict),
-        falsePositives: normaliseFalsePositives(d.falsePositives),
-        writeup: normaliseWriteup(d.writeup),
+        verdict: normalizeVerdict(d.verdict),
+        falsePositives: normalizeFalsePositives(d.falsePositives),
+        writeup: normalizeWriteup(d.writeup),
       };
     }
   }
@@ -113,11 +113,11 @@ export function normalise(input: unknown): Progress {
             (attempt.note.trim().length < 25 && attempt.source !== "timed") ||
             typeof attempt.revealedAt !== "number" || !Number.isFinite(attempt.revealedAt)) continue;
         attempts.push({ note: attempt.note, revealedAt: attempt.revealedAt,
-          caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false,
+          caught: normalizeCaught(attempt.caught), scored: attempt.scored !== false,
           source: attempt.source === "timed" ? "timed" : undefined,
-          verdict: normaliseVerdict(attempt.verdict),
-          falsePositives: normaliseFalsePositives(attempt.falsePositives),
-          writeup: normaliseWriteup(attempt.writeup) });
+          verdict: normalizeVerdict(attempt.verdict),
+          falsePositives: normalizeFalsePositives(attempt.falsePositives),
+          writeup: normalizeWriteup(attempt.writeup) });
       }
       if (attempts.length) out.reviews[id] = attempts;
     }
@@ -132,7 +132,7 @@ export function normalise(input: unknown): Progress {
 
   if (Array.isArray(src.sessions)) {
     for (const raw of src.sessions) {
-      const s = normaliseSession(raw);
+      const s = normalizeSession(raw);
       if (s) out.sessions.push(s);
     }
   }
@@ -140,7 +140,7 @@ export function normalise(input: unknown): Progress {
   return out;
 }
 
-function normaliseSession(input: unknown): TimedSession | null {
+function normalizeSession(input: unknown): TimedSession | null {
   if (typeof input !== "object" || input === null) return null;
   const s = input as Record<string, unknown>;
   if (!Array.isArray(s.drillIds)) return null;
@@ -191,10 +191,10 @@ export function updateAttemptAssessment(
   patch: { verdict?: Verdict; falsePositives?: number; writeup?: Writeup },
 ): Progress {
   const assessment = {
-    ...(patch.writeup === undefined ? {} : { writeup: normaliseWriteup(patch.writeup) }),
-    ...(patch.verdict === undefined ? {} : { verdict: normaliseVerdict(patch.verdict) }),
+    ...(patch.writeup === undefined ? {} : { writeup: normalizeWriteup(patch.writeup) }),
+    ...(patch.verdict === undefined ? {} : { verdict: normalizeVerdict(patch.verdict) }),
     ...(patch.falsePositives === undefined ? {} : {
-      falsePositives: normaliseFalsePositives(patch.falsePositives),
+      falsePositives: normalizeFalsePositives(patch.falsePositives),
     }),
   };
   if (attempt === 1) {
@@ -221,11 +221,11 @@ export function recordTimedRun(progress: Progress, run: TimedRun): Progress {
     if (drills[id]?.revealed) {
       reviews[id] = [...(reviews[id] ?? []), {
         note, revealedAt: session.finishedAt, caught, scored: true, source: "timed",
-        writeup: normaliseWriteup(run.writeups?.[id]),
+        writeup: normalizeWriteup(run.writeups?.[id]),
       }];
     } else {
       drills[id] = { note, revealed: true, hintLevel: 0, caught,
-        revealedAt: session.finishedAt, writeup: normaliseWriteup(run.writeups?.[id]) };
+        revealedAt: session.finishedAt, writeup: normalizeWriteup(run.writeups?.[id]) };
     }
   }
   return { ...progress, drills, reviews, sessions: [...progress.sessions, session] };

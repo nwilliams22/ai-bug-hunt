@@ -1,4 +1,4 @@
-import { normaliseWriteup } from "./storage";
+import { normalizeWriteup } from "./storage";
 import { DRILLS, DRILL_BY_ID } from "./content/drills";
 import type { Drill, Level, TimedRun, TimedSession } from "./types";
 
@@ -29,7 +29,7 @@ export function loadRun(): TimedRun | null {
   try {
     const raw = localStorage.getItem(RUN_KEY);
     if (!raw) return null;
-    return normaliseRun(JSON.parse(raw) as unknown);
+    return normalizeRun(JSON.parse(raw) as unknown);
   } catch {
     return null;
   }
@@ -40,7 +40,7 @@ export function saveRun(run: TimedRun | null): void {
     if (run === null) localStorage.removeItem(RUN_KEY);
     else localStorage.setItem(RUN_KEY, JSON.stringify(run));
   } catch {
-    // A blocked or full store costs the resume-after-reload behaviour and
+    // A blocked or full store costs the resume-after-reload behavior and
     // nothing else. The session in memory carries on.
   }
 }
@@ -51,7 +51,7 @@ export function saveRun(run: TimedRun | null): void {
  * renumbered would present blank screens. Reject the whole run rather than
  * silently dropping entries, which would corrupt the count the debrief reports.
  */
-export function normaliseRun(input: unknown): TimedRun | null {
+export function normalizeRun(input: unknown): TimedRun | null {
   if (typeof input !== "object" || input === null) return null;
   const r = input as Record<string, unknown>;
   if (!Array.isArray(r.drillIds)) return null;
@@ -92,7 +92,7 @@ export function normaliseRun(input: unknown): TimedRun | null {
   return {
     writeups: typeof r.writeups === "object" && r.writeups !== null
       ? Object.fromEntries(Object.entries(r.writeups).flatMap(([id, value]) => {
-        const writeup = normaliseWriteup(value);
+        const writeup = normalizeWriteup(value);
         return writeup && drillIds.includes(Number(id)) ? [[id, writeup]] : [];
       })) : undefined,
     startedAt: typeof r.startedAt === "number" ? r.startedAt : now,

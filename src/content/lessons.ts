@@ -25,7 +25,7 @@ export const LESSONS: Lesson[] = [
     moduleId: "orientation",
     title: "The job, and what it rewards",
     blurb: "Reviewing generated code is a different skill from writing it.",
-    practice: [1, 2],
+    practice: [1, 2, 3, 31, 50, 61],
     body: `
 You are handed a function, or a diff, that is syntactically perfect, idiomatically
 plausible, well named, and commented. Your job is to decide whether it is correct,
@@ -58,9 +58,9 @@ rewarded, in roughly this order:
    cache invalidation is a blocker — and *saying so*. A reviewer who files everything at
    the same urgency has told the reader nothing.
 
-## What gets penalised
+## What gets penalized
 
-- **Style comments dressed as defects.** If it does not change behaviour, it is not a
+- **Style comments dressed as defects.** If it does not change behavior, it is not a
   defect. Say it separately or not at all.
 - **Vagueness.** "Might have concurrency issues" is unfalsifiable and therefore useless.
 - **Volume.** Ten weak findings are worse than three strong ones; they cost the reader
@@ -85,7 +85,7 @@ and is not*. Reading a defect and thinking "yes, obviously" builds nothing. Writ
     moduleId: "orientation",
     title: "How AI-generated code fails differently",
     blurb: "Ten failure modes that follow from how the code is produced.",
-    practice: [12, 16, 17, 22, 28],
+    practice: [16, 33, 12, 64, 74, 17, 22, 55],
     body: `
 Human code and generated code do not fail the same way, because they are not produced
 the same way. A human writes a bug because they held the wrong model of the problem.
@@ -96,7 +96,7 @@ Knowing the failure modes is most of the skill. They are not exotic.
 
 ## 1. Plausibility is the objective, correctness is a side effect
 
-The output is optimised to look like code that works. Everything that signals
+The output is optimized to look like code that works. Everything that signals
 correctness to a skimming reader — good names, a docstring, consistent style, a
 complete-looking set of branches — is present *because it is a surface feature*. Your
 priors about what well-written code implies about its author no longer hold. Treat
@@ -141,7 +141,7 @@ idempotency. A new column with no backfill. A feature flag with no default.
 ## 6. Concurrency is written as if single-threaded
 
 A single file read top to bottom is the model's entire view, and that view contains
-exactly one caller. Check-then-act, unsynchronised shared maps, effects that race
+exactly one caller. Check-then-act, unsynchronized shared maps, effects that race
 themselves — these are not oversights, they are what you get when the code is a
 description of one sequence of events.
 
@@ -154,7 +154,7 @@ what happened, and can they do anything about it?
 
 ## 8. Security defaults are omitted, not refused
 
-No parameterisation, no escaping, no encoding, no authorisation check, no timeout.
+No parameterization, no escaping, no encoding, no authorization check, no timeout.
 None of these are visible as absences. The code does not look insecure; it looks short.
 
 ## 9. It will agree with you
@@ -167,8 +167,8 @@ Resolve it by constructing the failing input.
 ## 10. The tests encode the bug
 
 When tests are generated alongside the implementation, they are generated *from the
-implementation*. They will pass. They will assert the buggy behaviour as expected
-behaviour, in confident prose:
+implementation*. They will pass. They will assert the buggy behavior as expected
+behavior, in confident prose:
 \`assert paginate(items, 1) == items[20:40]  # second page\`.
 
 A green test suite on generated code means the code is self-consistent, not that it is
@@ -230,7 +230,7 @@ answer and move on; an unanswered question is itself a legitimate review comment
 > diff."** It is not an admission of failure. It says the change is not reviewable as
 > submitted, which is a real defect in the change.
 `,
-    practice: [3],
+    practice: [3, 4, 6, 12, 52, 75, 65],
   },
 
   {
@@ -238,7 +238,7 @@ answer and move on; an unanswered question is itself a legitimate review comment
     moduleId: "method",
     title: "Pass 1 — Contract",
     blurb: "Does the name, signature and docstring match what the code does?",
-    practice: [1, 6, 12, 15, 21, 25, 26],
+    practice: [1, 16, 6, 57, 61, 64, 67, 47, 59, 79],
     body: `
 **The question:** if I only read the name, the signature and the docstring, what would I
 expect this to do? Now read the body. Do they agree?
@@ -254,7 +254,7 @@ independent guesses at the same problem.
   0-indexed. Nothing raises. Every user silently loses the first page.
 - **Parameter names that imply semantics the body doesn't have.** \`retries=3\` that
   produces three total attempts. \`timeout\` that is a per-read timeout, not a total one.
-- **Docstrings describing absent behaviour.** "Rounds to the nearest cent" above code
+- **Docstrings describing absent behavior.** "Rounds to the nearest cent" above code
   that truncates to whole units. This is a finding *and* a statement of intent — it
   tells you which of the two is the bug.
 - **Return types that vary by path.** Returns a list here, None there, raises over there.
@@ -294,7 +294,7 @@ what a construct was *for*, then checked whether it still does it.
     moduleId: "method",
     title: "Pass 2 — Boundaries",
     blurb: "Empty, one, zero, negative, duplicate, maximum.",
-    practice: [2, 8, 10, 14, 20, 23, 30],
+    practice: [2, 32, 14, 66, 70, 75, 8, 9, 10, 72],
     body: `
 **The question:** substitute each boundary value and trace what happens. Not "are the
 edge cases handled" — actually substitute.
@@ -321,7 +321,7 @@ Run every one of these against every input the function takes:
 **The seeded accumulator.** \`let mut max = 0.0\`. For all-negative input this returns
 zero — a value that does not appear anywhere in the data. It is completely silent, and
 it lands in temperature, delta, and profit-and-loss code constantly. Whenever you see an
-accumulator initialised to a literal, ask whether that literal is a possible answer.
+accumulator initialized to a literal, ask whether that literal is a possible answer.
 
 **The trailing partial.** A loop that flushes only when \`len(buf) == size\` drops
 whatever is left over at the end. Ten items, batches of three, and the tenth item is
@@ -349,7 +349,7 @@ time pressure when "read carefully" does not.
     moduleId: "method",
     title: "Pass 3 — Shared state",
     blurb: "Is anything mutated that the caller still holds a reference to?",
-    practice: [2, 3, 10, 11, 20, 27, 28],
+    practice: [3, 31, 36, 41, 42, 51, 43, 45, 55, 71],
     body: `
 **The question:** after this returns, which objects does the caller still hold that are
 not what they were?
@@ -404,7 +404,7 @@ you can name a concrete breakage. "The caller's array is reordered" is itself th
     moduleId: "method",
     title: "Pass 4 — Time & concurrency",
     blurb: "Two of these at once, and a clock you don't control.",
-    practice: [4, 5, 7, 11, 19, 23, 24, 25, 29],
+    practice: [33, 34, 4, 7, 24, 35, 50, 40, 48, 56],
     body: `
 **The question:** imagine a second identical call starting three milliseconds after this
 one. Now interleave them line by line and find the pair of lines that must not be
@@ -477,7 +477,7 @@ result — and its absence is a finding on sight.
     moduleId: "method",
     title: "Pass 5 — Silent coercion",
     blurb: "Where does a type quietly become a different type?",
-    practice: [2, 6, 12, 17, 20, 21, 22, 29],
+    practice: [2, 12, 42, 54, 68, 76, 20, 22, 60, 77],
     body: `
 **The question:** for each expression, what is the static type of every subexpression,
 and where does the language convert one to another without telling anyone?
@@ -545,7 +545,7 @@ for truth — stop and write the types down. That is the whole pass.
     moduleId: "method",
     title: "Pass 6 — Failure surface",
     blurb: "When this goes wrong, does it fail loudly or quietly?",
-    practice: [7, 11, 14, 15, 19, 22, 27, 30],
+    practice: [34, 5, 15, 19, 39, 53, 27, 30, 63, 65],
     body: `
 **The question:** enumerate every way this can fail. For each one, ask what the caller
 observes, and whether they can do anything about it.
@@ -612,7 +612,7 @@ of how unlikely the failure is.
     moduleId: "practice",
     title: "Reviewing a change, not a function",
     blurb: "The defect is often in the code that should exist and doesn't.",
-    practice: [17, 18, 26, 28],
+    practice: [37, 38, 41, 44, 57, 17, 18, 26, 28, 46, 47, 48, 49, 56],
     body: `
 Most of the paid work is diffs, and a diff is harder than a function, because a diff
 tells you where to look and *that is the problem*. Your attention is directed at the
@@ -633,14 +633,14 @@ are not on them.
 \`\`\`
 
 Before, an override replaced a whole section. After, it merges into it, so keys the
-override deliberately omitted now survive. Both behaviours are defensible; the point is
+override deliberately omitted now survive. Both behaviors are defensible; the point is
 that every existing caller was written against the first and nothing announces the
 second. No docstring change, no version bump, no test. Somewhere there is a caller
 passing a reduced section in order to *clear* fields, and it has silently stopped
 clearing them.
 
 **A silent compatibility break is a finding in its own right**, separate from whether
-the new behaviour is better.
+the new behavior is better.
 
 **2. What code should have changed and didn't?**
 
@@ -676,8 +676,8 @@ Reviewers who never mention them miss real bugs. **Mention, and label.**
    attached to a change across four layers is itself a flag.
 3. Ask the three questions above.
 4. *Now* run the six passes on the changed code.
-5. Check the tests. Changed behaviour with unchanged tests means either the tests do not
-   cover it or the behaviour change was not intended. Both are findings.
+5. Check the tests. Changed behavior with unchanged tests means either the tests do not
+   cover it or the behavior change was not intended. Both are findings.
 `,
   },
 
@@ -686,7 +686,7 @@ Reviewers who never mention them miss real bugs. **Mention, and label.**
     moduleId: "practice",
     title: "Writing the finding",
     blurb: "Mechanism, failing input, signal, fix. In that order, every time.",
-    practice: [2, 5],
+    practice: [2, 16, 31, 5, 61, 70, 21, 40],
     body: `
 A defect you found and cannot communicate scores as a defect you did not find. The
 format below is what review rubrics reward, and it is also just the fastest way to be
@@ -694,7 +694,7 @@ believed.
 
 ## The four parts
 
-**1. Mechanism.** The specific language or system behaviour that causes it. Not what is
+**1. Mechanism.** The specific language or system behavior that causes it. Not what is
 wrong — *why* it is wrong.
 
 > \`Array.prototype.sort()\` with no comparator converts elements to strings before
@@ -757,7 +757,7 @@ knowledge and it hands the author a specific thing to answer.
     moduleId: "practice",
     title: "Severity and the verdict",
     blurb: "Approve, approve with comments, or request changes — and why it matters.",
-    practice: [16, 17, 22, 30],
+    practice: [16, 58, 68, 74, 78, 22, 30, 49, 59],
     body: `
 The deliverable is usually not a list of findings. It is a *decision*, with the findings
 as evidence. A reviewer who files everything at the same urgency has told the reader
@@ -776,7 +776,7 @@ signal when they do, or a bounded blast radius. Unbounded concurrency. No timeou
 **Minor** — real, with a small or unlikely impact, or easily handled downstream. The
 undocumented TTL boundary. Non-string input raising instead of returning False.
 
-**Nit** — no behavioural consequence. The shadowed local name. Label these explicitly
+**Nit** — no behavioral consequence. The shadowed local name. Label these explicitly
 and put them last, or leave them out. **A nit filed with the same weight as a blocker
 costs you the blocker.**
 
@@ -797,7 +797,7 @@ clever the bug is. The lexicographic sort is not clever. It is a blocker.
 ## The verdict
 
 **Request changes** if there is at least one blocker, or if the change is *incomplete* —
-the missing invalidation, the missing backfill, the behaviour change with no test. State
+the missing invalidation, the missing backfill, the behavior change with no test. State
 the single reason first; do not make the author infer it from a list of twelve comments.
 
 **Approve with comments** if everything you found is minor or nit, or if the majors are
@@ -827,11 +827,11 @@ the cost of defending it is large.
     moduleId: "practice",
     title: "Reviewing the tests",
     blurb: "Generated tests are written from the implementation, so they pass.",
-    practice: [10, 18],
+    practice: [29, 62, 10, 13, 18, 43, 73],
     body: `
 When tests arrive in the same change as the implementation, and both were generated,
 the tests were written from the implementation rather than from the specification.
-They will pass. They will assert the buggy behaviour as the expected behaviour, in
+They will pass. They will assert the buggy behavior as the expected behavior, in
 confident prose.
 
 \`\`\`python
@@ -873,11 +873,11 @@ Watch for:
   \`assert result == sorted(items)[len(items) // 2]\` re-implements the bug in the test.
 - **Over-mocking.** Mock the database and the cache, and the cache-invalidation defect
   becomes untestable by construction. If the mocks are shaped exactly like the
-  implementation's calls, the test asserts the implementation, not the behaviour.
+  implementation's calls, the test asserts the implementation, not the behavior.
 - **\`assert result is not None\`** and nothing else. Passes for any wrong answer.
 - **try/except around the assertion.** Rare, but it happens, and it is always worth the
   moment it takes to check.
-- **A test named for a behaviour it does not exercise.** \`test_handles_empty_input\`
+- **A test named for a behavior it does not exercise.** \`test_handles_empty_input\`
   that passes \`[0]\`.
 
 ## The reviewer's move
@@ -894,7 +894,7 @@ the author.
     moduleId: "practice",
     title: "Reviewing under a clock",
     blurb: "Pacing, triage, and the order to read a sample in when you have six minutes.",
-    practice: [24, 26],
+    practice: [24, 44, 11, 20, 23, 25, 26, 69],
     body: `
 Everything up to here assumed you had as long as you wanted. The paid version does not
 work like that. A review queue pays per item, the items keep coming, and the difference

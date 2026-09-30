@@ -8,7 +8,7 @@ export const PASSES: Pass[] = [
     tells: [
       "0-indexed vs 1-indexed mismatch",
       "parameter name implies different semantics than the code",
-      "docstring describes behaviour the code doesn't have",
+      "docstring describes behavior the code doesn't have",
       "return type varies by path",
       "a function that both mutates and returns",
       "a deprecated API used as if current",
@@ -89,7 +89,7 @@ export const PASSES: Pass[] = [
       "which items in a batch failed is unrecoverable",
     ],
     whyAi:
-      "A model optimises for code that looks finished. A bare `except: pass` and a `return None` both make a function look total — every path returns something, no rough edges. They are the textual signature of completeness and the semantic signature of a system that cannot be operated.",
+      "A model optimizes for code that looks finished. A bare `except: pass` and a `return None` both make a function look total — every path returns something, no rough edges. They are the textual signature of completeness and the semantic signature of a system that cannot be operated.",
   },
 ];
 

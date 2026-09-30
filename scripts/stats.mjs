@@ -107,6 +107,29 @@ for (const [pattern, key] of CLAIMS) {
   }
 }
 
+/**
+ * The "Practice this" lists went stale the same way the README counts did: they
+ * named drills 1–30 for months while 49 more landed, so every drill added after
+ * the lessons were written was reachable only from the index. Requiring full
+ * coverage means a new batch cannot land without being taught by something —
+ * and a practice id that no longer exists renders as nothing, silently, so it
+ * is checked here rather than discovered on the page.
+ */
+const practiced = new Set(LESSONS.flatMap((l) => l.practice ?? []));
+const drillIds = new Set(DRILLS.map((d) => d.id));
+const orphans = [...practiced].filter((id) => !drillIds.has(id));
+const untaught = DRILLS.filter((d) => !practiced.has(d.id)).map((d) => d.id);
+
+if (orphans.length) {
+  problems.push(`lesson practice lists name drills that do not exist: ${orphans.join(", ")}`);
+}
+if (untaught.length) {
+  problems.push(
+    `no lesson practices drill${untaught.length > 1 ? "s" : ""} ${untaught.join(", ")} — ` +
+      `add each to the practice list of the lesson it exercises in src/content/lessons.ts`,
+  );
+}
+
 if (!check) {
   console.log(`drills          ${stats.drills}  (${stats.diffs} diffs, ${stats.multiFile} multi-file)`);
   console.log(`languages       ${stats.langs}`);
@@ -118,13 +141,19 @@ if (!check) {
   console.log(`by level        ${byLevel.map(([k, n]) => `${k} ${n}`).join(", ")}`);
   console.log(`by family       ${byFamily.map(([k, n]) => `${k} ${n}`).join(", ")}`);
   console.log(`by severity     ${bySeverity.map(([k, n]) => `${k} ${n}`).join(", ")}`);
+  console.log(`\npracticed       ${practiced.size} of ${stats.drills} drills are on a lesson's practice list`);
 }
 
 if (problems.length) {
-  console.error(`\nREADME disagrees with the content:`);
+  console.error(`\nThe content and what is claimed about it disagree:`);
   for (const p of problems) console.error(`  - ${p}`);
-  console.error(`\nFix README.md, or update CLAIMS in scripts/stats.mjs if the wording changed.`);
+  console.error(`\nFix README.md or src/content/lessons.ts; update CLAIMS in scripts/stats.mjs if the wording changed.`);
   process.exit(1);
 }
 
-if (check) console.log(`README counts agree with the content (${CLAIMS.length} claims checked).`);
+if (check) {
+  console.log(
+    `README counts agree with the content (${CLAIMS.length} claims checked); ` +
+      `all ${stats.drills} drills are on a lesson's practice list.`,
+  );
+}

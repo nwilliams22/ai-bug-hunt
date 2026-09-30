@@ -460,7 +460,7 @@ export async function run(cdpBase) {
 
   /* --------------------------- repeat review queue ------------------------ */
 
-  // A v2 export has no reviews; the normaliser must retain the original answer.
+  // A v2 export has no reviews; the normalizer must retain the original answer.
   await evalJs(`(() => {
     const old = { version: 2, drills: {
       1: { note: "Original review with enough detail to score", revealed: true,
@@ -762,6 +762,15 @@ export async function run(cdpBase) {
   check('lesson practice links carry the position and say nothing is gated', await evalJs(`
     /^\\d+\\. /.test(document.querySelector('.practice a').textContent.trim()) &&
     document.querySelector('.practice-note').textContent.includes('nothing is gated')`));
+  // Listing a drill under a pass would otherwise hint that it has a defect in
+  // that pass, so the note has to disclaim it and the list has to show level.
+  check('practice list shows language and level, and disclaims being a hint', await evalJs(`
+    /\\w+ · (Warm-up|Standard|Hard)/.test(document.querySelector('.practice-lang').textContent) &&
+    document.querySelector('.practice-note').textContent.includes('not') &&
+    document.querySelector('.practice-note').textContent.includes('hint')`));
+  check('lesson practice is spelled the US way', await evalJs(`
+    document.querySelector('.practice-h').textContent.trim() === 'Practice this' &&
+    !/Practis/.test(document.body.textContent)`));
   check('lesson practice position matches the sidebar', await evalJs(`
     (() => { const a = document.querySelector('.practice a');
       const n = a.textContent.trim().split('.')[0];
