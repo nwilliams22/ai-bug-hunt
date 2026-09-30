@@ -1,5 +1,7 @@
+import { WriteupRubric } from "../components/WriteupRubric";
+import { practiceOrder } from "../review";
 import { useMemo } from "react";
-import { DRILLS, DRILL_BY_ID } from "../content/drills";
+import { DRILL_BY_ID } from "../content/drills";
 import { CLEAN_REVIEW } from "../content/drills/batch-d";
 import { PASSES, familyName } from "../content/passes";
 import { DrillCode } from "../components/CodeBlock";
@@ -96,6 +98,7 @@ interface Props {
 
 export function DrillView({ id, state, update }: Props) {
   const drill = DRILL_BY_ID.get(id);
+  const DRILLS = practiceOrder();
   const index = DRILLS.findIndex((d) => d.id === id);
   const prev = index > 0 ? DRILLS[index - 1] : undefined;
   const next = index >= 0 && index < DRILLS.length - 1 ? DRILLS[index + 1] : undefined;
@@ -249,6 +252,7 @@ export function DrillView({ id, state, update }: Props) {
               </div>
             ))}
             <ModelReviewCard id={id} />
+            <WriteupRubric drill={drill} value={state.writeup} update={(writeup) => update({ writeup })} />
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import type { Progress, DrillProgress, ReviewAttempt, TimedSession, Verdict } from "./types";
+import type { Writeup, Progress, DrillProgress, ReviewAttempt, TimedSession, Verdict } from "./types";
 import type { TimedRun } from "./types";
 import { toSession } from "./timed";
 
@@ -16,6 +16,16 @@ export const EMPTY_DRILL: DrillProgress = {
 
 export function empty(): Progress {
   return { version: 3, drills: {}, reviews: {}, lessonsRead: {}, sessions: [] };
+}
+
+export function normaliseWriteup(value: unknown): Writeup | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const result: Writeup = {};
+  for (const key of ["mechanism", "input", "signal", "fix"] as const) {
+    const v = (value as Record<string, unknown>)[key];
+    if (typeof v === "boolean") result[key] = v;
+  }
+  return Object.keys(result).length ? result : undefined;
 }
 
 function normaliseCaught(input: unknown): Record<number, boolean> {
@@ -85,6 +95,7 @@ export function normalise(input: unknown): Progress {
         revealedAt: typeof d.revealedAt === "number" ? d.revealedAt : undefined,
         verdict: normaliseVerdict(d.verdict),
         falsePositives: normaliseFalsePositives(d.falsePositives),
+        writeup: normaliseWriteup(d.writeup),
       };
     }
   }
@@ -105,7 +116,8 @@ export function normalise(input: unknown): Progress {
           caught: normaliseCaught(attempt.caught), scored: attempt.scored !== false,
           source: attempt.source === "timed" ? "timed" : undefined,
           verdict: normaliseVerdict(attempt.verdict),
-          falsePositives: normaliseFalsePositives(attempt.falsePositives) });
+          falsePositives: normaliseFalsePositives(attempt.falsePositives),
+          writeup: normaliseWriteup(attempt.writeup) });
       }
       if (attempts.length) out.reviews[id] = attempts;
     }
@@ -176,9 +188,10 @@ export function drillState(p: Progress, id: number): DrillProgress {
 /** Attempt 1 is the original drill; attempts 2+ are repeats. */
 export function updateAttemptAssessment(
   progress: Progress, id: number, attempt: number,
-  patch: { verdict?: Verdict; falsePositives?: number },
+  patch: { verdict?: Verdict; falsePositives?: number; writeup?: Writeup },
 ): Progress {
   const assessment = {
+    ...(patch.writeup === undefined ? {} : { writeup: normaliseWriteup(patch.writeup) }),
     ...(patch.verdict === undefined ? {} : { verdict: normaliseVerdict(patch.verdict) }),
     ...(patch.falsePositives === undefined ? {} : {
       falsePositives: normaliseFalsePositives(patch.falsePositives),
@@ -208,10 +221,11 @@ export function recordTimedRun(progress: Progress, run: TimedRun): Progress {
     if (drills[id]?.revealed) {
       reviews[id] = [...(reviews[id] ?? []), {
         note, revealedAt: session.finishedAt, caught, scored: true, source: "timed",
+        writeup: normaliseWriteup(run.writeups?.[id]),
       }];
     } else {
       drills[id] = { note, revealed: true, hintLevel: 0, caught,
-        revealedAt: session.finishedAt };
+        revealedAt: session.finishedAt, writeup: normaliseWriteup(run.writeups?.[id]) };
     }
   }
   return { ...progress, drills, reviews, sessions: [...progress.sessions, session] };

@@ -4,14 +4,14 @@ import { DRILLS } from "./content/drills";
 import { GOTCHA_LANGS } from "./content/gotchas";
 import { href, useRoute } from "./route";
 import { drillState, load, recordTimedRun, save, updateAttemptAssessment } from "./storage";
-import type { DrillProgress, Progress, Verdict } from "./types";
+import type { DrillProgress, Progress, Verdict, Writeup } from "./types";
 import { HomeView, DrillTable } from "./views/HomeView";
 import { LessonView } from "./views/LessonView";
 import { DrillView } from "./views/DrillView";
 import { GotchasView } from "./views/GotchasView";
 import { TimedView } from "./views/TimedView";
 import { ProgressView, computeStats } from "./views/ProgressView";
-import { dueReviews } from "./review";
+import { dueReviews, practiceOrder } from "./review";
 import { ReviewView } from "./views/ReviewView";
 import type { TimedRun } from "./types";
 
@@ -61,7 +61,7 @@ export default function App() {
   }, []);
 
   const assessReview = useCallback((id: number, patch: {
-    verdict?: Verdict; falsePositives?: number;
+    verdict?: Verdict; falsePositives?: number; writeup?: Writeup;
   }) => {
     setProgress((p) => updateAttemptAssessment(p, id, (p.reviews[id]?.length ?? 0) + 1, patch));
   }, []);
@@ -212,7 +212,7 @@ function Sidebar({
 
         <section className="side-sec">
           <p className="side-h">Drills</p>
-          {DRILLS.map((d) => {
+          {practiceOrder().map((d) => {
             const st = drillState(progress, d.id);
             return (
               <a

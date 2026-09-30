@@ -1,3 +1,4 @@
+import { normaliseWriteup } from "./storage";
 import { DRILLS, DRILL_BY_ID } from "./content/drills";
 import type { Drill, Level, TimedRun, TimedSession } from "./types";
 
@@ -89,6 +90,11 @@ export function normaliseRun(input: unknown): TimedRun | null {
 
   const now = Date.now();
   return {
+    writeups: typeof r.writeups === "object" && r.writeups !== null
+      ? Object.fromEntries(Object.entries(r.writeups).flatMap(([id, value]) => {
+        const writeup = normaliseWriteup(value);
+        return writeup && drillIds.includes(Number(id)) ? [[id, writeup]] : [];
+      })) : undefined,
     startedAt: typeof r.startedAt === "number" ? r.startedAt : now,
     secondsPerDrill:
       typeof r.secondsPerDrill === "number" && r.secondsPerDrill > 0

@@ -1,3 +1,5 @@
+import { WRITEUP_CRITERIA, writeupScore } from "../components/WriteupRubric";
+import { practiceOrder } from "../review";
 import { useRef } from "react";
 import { DRILLS } from "../content/drills";
 import { LESSONS } from "../content/lessons";
@@ -105,7 +107,21 @@ export function ProgressView({ progress, stats, replace }: Props) {
     .filter((f) => f.total > 0)
     .sort((a, b) => (a.rate ?? 1) - (b.rate ?? 1));
 
-  const unreviewed = DRILLS.filter((d) => !drillState(progress, d.id).revealed);
+  const criteria = WRITEUP_CRITERIA.map((criterion) => {
+    let hit = 0, total = 0;
+    for (const drill of DRILLS) {
+      const first = progress.drills[drill.id];
+      if (!first?.revealed) continue;
+      for (const attempt of [first, ...(progress.reviews[drill.id] ?? [])]) {
+        if (writeupScore(drill, attempt.writeup) === null) continue;
+        total += 1;
+        if (attempt.writeup?.[criterion.id]) hit += 1;
+      }
+    }
+    return { ...criterion, hit, total, rate: total ? hit / total : null };
+  }).filter((item) => item.total > 0).sort((a, b) => a.rate! - b.rate!);
+
+  const unreviewed = practiceOrder().filter((d) => !drillState(progress, d.id).revealed);
 
   const onImport = async (file: File) => {
     try {
@@ -188,6 +204,17 @@ export function ProgressView({ progress, stats, replace }: Props) {
           </p>
         </>
       )}
+
+      <section aria-label="Write-up progress">
+        <h3 className="sec-h">Write-up criteria — weakest first</h3>
+        {criteria.length ? <div className="fam-rows">{criteria.map((item) =>
+          <div className="fam-row" key={item.id}>
+            <a className="fam-name" href={href({ view: "lesson", id: "writing-the-finding" })}>{item.label}</a>
+            <span className="fam-bar"><span className="fam-fill" style={{ width: `${Math.round(item.rate! * 100)}%` }} /></span>
+            <span className="fam-num">{item.hit}/{item.total}</span>
+          </div>)}</div> : <p className="note">Write-up: — (no assessed findings).</p>}
+        <p className="note">Originals and repeats count separately. Clean drills and unscored write-ups do not count.</p>
+      </section>
 
       <h3 className="sec-h">Timed sessions</h3>
       {progress.sessions.length === 0 ? (

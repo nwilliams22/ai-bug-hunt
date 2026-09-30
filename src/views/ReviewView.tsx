@@ -1,17 +1,19 @@
+import { WriteupRubric, writeupScore } from "../components/WriteupRubric";
+import { ModelReviewCard } from "../components/ModelReview";
 import { useState } from "react";
 import { DrillCode } from "../components/CodeBlock";
 import { familyName } from "../content/passes";
 import { dueReviews, reviewSchedule } from "../review";
 import { href } from "../route";
 import { AssessmentResult, ReviewReason, VerdictChoice, calibrationScore } from "./DrillView";
-import type { Progress, Verdict } from "../types";
+import type { Progress, Verdict, Writeup } from "../types";
 
 interface Props {
   progress: Progress;
   id?: number;
   complete: (id: number, note: string, verdict?: Verdict) => void;
   mark: (id: number, index: number, caught: boolean) => void;
-  assess: (id: number, patch: { verdict?: Verdict; falsePositives?: number }) => void;
+  assess: (id: number, patch: { verdict?: Verdict; falsePositives?: number; writeup?: Writeup }) => void;
   finish: (id: number) => void;
 }
 
@@ -82,6 +84,8 @@ export function ReviewView({ progress, id, complete, mark, assess, finish }: Pro
           <div className="def-f">{defect.fix}</div>
         </div>)}
       </div>
+      <ModelReviewCard id={drill.id} />
+      <WriteupRubric drill={drill} value={last.writeup} update={(writeup) => assess(drill.id, { writeup })} />
       <button className="btn" disabled={last.falsePositives === undefined}
         onClick={() => { finish(drill.id); setOpened(false); }}>
         Finish scoring
@@ -98,6 +102,7 @@ export function ReviewView({ progress, id, complete, mark, assess, finish }: Pro
             {attempt.verdict ? ` · ${attempt.verdict}` : ""}
             {calibrationScore(drill, attempt) !== null
               ? ` · calibration ${calibrationScore(drill, attempt)}/100` : " · calibration not recorded"}
+            {writeupScore(drill, attempt.writeup) !== null ? ` · write-up ${writeupScore(drill, attempt.writeup)}%` : " · write-up —"}
             {attempt.revealedAt ? ` · ${new Date(attempt.revealedAt).toLocaleDateString()}` : ""}
             <span className="lesson-blurb">{attempt.note}</span>
           </li>;

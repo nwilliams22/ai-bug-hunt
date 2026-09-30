@@ -733,6 +733,113 @@ export async function run(cdpBase) {
         p.reviews[50][0].verdict === undefined && p.reviews[50][0].falsePositives === undefined;
     })()`)) === true);
 
+  /* ---------------- write-up rubric and practice order ------------------- */
+  await evalJs(`localStorage.clear(); location.hash = '#/drills'`);
+  await send('Page.reload');
+  await sleep(900);
+  const practiceIds = () => evalJs(`Array.from(document.querySelectorAll('.drill-table tbody a')).map(a => a.hash).join(',')`);
+  const practiceBefore = await practiceIds();
+  check('practice order is not ascending id order', practiceBefore !== practiceBefore.split(',').sort((a, b) => Number(a.split('/').at(-1)) - Number(b.split('/').at(-1))).join(','));
+  await send('Page.reload');
+  await sleep(900);
+  check('practice order survives reload', practiceBefore === await practiceIds());
+  await evalJs(`location.hash = '#/drill/8'`);
+  await sleep(200);
+  check('write-up rubric stays hidden before reveal', await evalJs(`document.querySelector('.writeup-rubric') === null`));
+  await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
+    drills: {8: {note: 'The mechanism has a concrete failing input.', revealed: true, hintLevel: 0, caught: {}, revealedAt: 1}},
+    reviews: {}, lessonsRead: {}, sessions: []}));`);
+  await send('Page.reload');
+  await sleep(900);
+  check('reveal shows four lesson-derived criteria and cutting guidance', await evalJs(`
+    document.querySelectorAll('.writeup-rubric input').length === 4 &&
+    document.querySelector('.writeup-rubric').textContent.includes('actual output written down') &&
+    document.querySelector('.writeup-rubric').textContent.includes('The tour of your reasoning')`));
+  await evalJs(`document.querySelector('.writeup-rubric input').click()`);
+  await sleep(200);
+  check('one criterion records a 25 percent write-up', await evalJs(`document.querySelector('.writeup-score').textContent.includes('25%')`));
+  await send('Page.reload');
+  await sleep(900);
+  check('write-up reload preserves optional version-three fields', await evalJs(`
+    JSON.parse(localStorage.getItem('${progressKey}')).version === 3 &&
+    document.querySelector('.writeup-rubric input').checked &&
+    document.querySelector('.writeup-score').textContent.includes('25%')`));
+  await evalJs(`(() => { const p = JSON.parse(localStorage.getItem('${progressKey}'));
+    p.reviews[8] = [{note: 'A fresh independent review with specific evidence.', revealedAt: 2,
+      caught: {}, scored: false, writeup: {mechanism: true, input: true, signal: true, fix: true}}];
+    localStorage.setItem('${progressKey}', JSON.stringify(p)); location.hash = '#/review/8'; })()`);
+  await send('Page.reload');
+  await sleep(900);
+  check('repeat rubric and trend use the repeat score', await evalJs(`
+    document.querySelector('.writeup-score').textContent.includes('100%') &&
+    document.body.textContent.includes('write-up 25%') && document.body.textContent.includes('write-up 100%')`));
+  await evalJs(`location.hash = '#/progress'`);
+  await sleep(200);
+  check('weakest write-up criterion comes first and counts repeats', await evalJs(`
+    document.querySelector('[aria-label="Write-up progress"] .fam-name').textContent === 'Concrete failing input' &&
+    document.querySelector('[aria-label="Write-up progress"] .fam-num').textContent === '1/2' &&
+    document.querySelector('[aria-label="Write-up progress"] a').hash === '#/lesson/writing-the-finding'`));
+  await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
+    drills: {50: {note: 'Approved after checking the contract.', revealed: true, hintLevel: 0, caught: {}, writeup: {mechanism: false, input: false, signal: false, fix: false}}},
+    reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/drill/50'`);
+  await send('Page.reload');
+  await sleep(900);
+  check('clean reveal has no write-up checkboxes or zero percent', await evalJs(`
+    document.querySelector('.writeup-rubric') === null && document.querySelector('.writeup-empty').textContent.includes('no findings to score')`));
+  await evalJs(`location.hash = '#/progress'`);
+  await sleep(200);
+  check('clean progress excludes fabricated criterion scores', await evalJs(`
+    document.querySelectorAll('[aria-label="Write-up progress"] .fam-row').length === 0 &&
+    !document.querySelector('[aria-label="Write-up progress"]').textContent.includes('0%')`));
+  await evalJs(`localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
+    startedAt: Date.now(), secondsPerDrill: 600, drillIds: [8], at: 0,
+    drillStartedAt: Date.now(), notes: {8: 'A timed review with concrete evidence.'},
+    spent: {}, phase: 'running', caught: {}
+  })); location.hash = '#/timed'`);
+  await send('Page.reload');
+  await sleep(900);
+  check('timed run contains no write-up rubric', await evalJs(`document.querySelector('.writeup-rubric') === null`));
+  await click('Submit and score');
+  await sleep(200);
+  check('timed debrief shows write-up rubric', await evalJs(`document.querySelectorAll('.writeup-rubric input').length === 4`));
+  await evalJs(`document.querySelector('.writeup-rubric input').click()`);
+  await sleep(200);
+  await send('Page.reload');
+  await sleep(900);
+  check('timed debrief reload preserves write-up score', await evalJs(`document.querySelector('.writeup-score').textContent.includes('25%')`));
+  await click('Record this session');
+  await sleep(200);
+  check('timed write-up is recorded on the attempt', await evalJs(`JSON.parse(localStorage.getItem('${progressKey}')).drills[8].writeup.mechanism === true`));
+
+  await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
+    drills: {31: {note: 'A review compared against the answer key.', revealed: true, hintLevel: 0, caught: {},
+      writeup: {mechanism: 'true', input: 1, signal: null, fix: false, unknown: true}}},
+    reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/drill/31'`);
+  await send('Page.reload');
+  await sleep(900);
+  check('missing model review retains answer prose and write-up standard', await evalJs(`
+    document.querySelector('.model-review') === null && document.querySelector('.def-b').textContent.length > 0 &&
+    document.querySelectorAll('.writeup-rubric input').length === 4`));
+  check('malformed optional rubric values do not fabricate a score', await evalJs(`
+    document.querySelector('.writeup-score').textContent.includes('not scored') &&
+    JSON.stringify(JSON.parse(localStorage.getItem('${progressKey}')).drills[31].writeup) === '{"fix":false}'`));
+  await click('Record no criteria met');
+  await sleep(200);
+  check('an explicit zero score is distinct from an unscored review', await evalJs(`
+    document.querySelector('.writeup-score').textContent.includes('0%')`));
+  await evalJs(`localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
+    startedAt: Date.now(), secondsPerDrill: 60, drillIds: [31], at: 1,
+    drillStartedAt: Date.now(), notes: {31: 'A different timed review.'}, spent: {31: 10},
+    phase: 'debrief', caught: {}, writeups: {31: {mechanism: true, input: true, signal: true, fix: true}}
+  })); location.hash = '#/timed'`);
+  await send('Page.reload');
+  await sleep(900);
+  await click('Record this session');
+  await sleep(200);
+  check('timed repeat keeps its write-up separate from the original', await evalJs(`
+    (() => {const p = JSON.parse(localStorage.getItem('${progressKey}'));
+      return p.drills[31].writeup.mechanism === false && p.reviews[31][0].writeup.mechanism === true;})()`));
+
   /* ------------------------------ console -------------------------------- */
 
   await sleep(300);

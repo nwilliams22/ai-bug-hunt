@@ -1,3 +1,4 @@
+import { WriteupRubric } from "../components/WriteupRubric";
 import { ReviewReason } from "./DrillView";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DRILL_BY_ID } from "../content/drills";
@@ -497,6 +498,8 @@ function Debrief({
               </div>
             ))}
             <ModelReviewCard id={id} />
+            <WriteupRubric drill={drill} value={run.writeups?.[id]} update={(writeup) =>
+              update({ ...run, writeups: { ...run.writeups, [id]: writeup } })} />
 
             <p className="note">
               <a href={href({ view: "drill", id: drill.id })}>Open this drill on its own</a>{" "}

@@ -131,7 +131,10 @@ export interface Gotcha {
 
 /* ---------- persisted progress ---------- */
 
+export type Writeup = Partial<Record<"mechanism" | "input" | "signal" | "fix", boolean>>;
+
 export interface DrillProgress {
+  writeup?: Writeup;
   /** The reviewer's written findings. */
   note: string;
   /** True once answers have been unlocked. */
@@ -150,6 +153,7 @@ export interface DrillProgress {
 
 /** One completed repeat; the original answer remains in DrillProgress. */
 export interface ReviewAttempt {
+  writeup?: Writeup;
   note: string;
   revealedAt: number;
   caught: Record<number, boolean>;
@@ -195,6 +199,7 @@ export interface Progress {
  * local storage once a second for the length of the session.
  */
 export interface TimedRun {
+  writeups?: Record<number, Writeup>;
   startedAt: number;
   secondsPerDrill: number;
   drillIds: number[];
