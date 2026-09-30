@@ -1513,6 +1513,336 @@ const REVIEWS: Record<number, ModelReview> = {
       },
     ],
   },
+  /* ---- drill 60 ---------------------------------------------------------- */
+  60: {
+    verdict: "request-changes",
+    reason:
+      "The function computes the discount once on the aggregated subtotal, but the ticket requires per-line rounding — which is a real divergence, and it also uses unchecked integer arithmetic that crashes on overflow. One of these is a contract violation I can produce; the other is a hard crash I can trigger.",
+    findings: [
+      {
+        title: "Per-line discount computed as a single aggregate",
+        where: "line 6, `let discount = subtotal * discountPercent / 100`",
+        body: "The ticket says *round each line to whole cents, then sum*. The function discounts the total, which is only equal to per-line rounding when the total discount divides cleanly. For two one-cent lines at 50%: aggregate is 2 × 50 / 100 = 1 cent off, per-line is 1 + 1 off, so the function returns 1 cent short. This is not a style preference — the caller reads the number and bills it, and the brief pins the contract. Fix: compute `line.subtotal * (100 - percent) / 100` per line and sum, or use the exact discount formula for each line before reducing.",
+      },
+      {
+        title: "Unchecked `Int` arithmetic crashes on overflow",
+        where: "line 5, `$1 + $1.unitCents * $1.quantity`",
+        body: "Swift's default integer multiplication is unchecked. A unit price near `Int.max` with `quantity = 2` traps the process with `Fatal error: arithmetic operation resulted in an overflow` — a hard crash with the stack trace in the runtime, not the caller. Both operands satisfy the stated contract (nonnegative quantities, positive unit prices), yet the caller sees a process termination rather than a return value. Fix: use `multipliedReportingOverflow` or a checked-arithmetic variant, and return the overflow as an explicit result the caller can surface.",
+      },
+    ],
+  },
+
+  /* ---- drill 61 ---------------------------------------------------------- */
+  61: {
+    verdict: "request-changes",
+    reason:
+      "The decoder scales by a hard-coded 100, but the brief says currencies can be zero- or three-decimal. The 100-factor corrupts the amount for every currency that is not two-decimal, and `toDouble` adds a binary-float rounding error that can shift a half-cent. Both are silent.",
+    findings: [
+      {
+        title: "Hard-coded two-decimal scaling corrupts JPY and KWD",
+        where: "line 8, `return Quote((amount * 100).round(), …)`",
+        body: "The 100 multiplier assumes two minor digits. For JPY (zero decimals), a 250-yen quote becomes 25000 minor units, which is 100× the correct value. For KWD (three decimals), 1.500 dinars should be 1500 filis but `1.500 * 100 = 150` rounds to 150 — ten times too small. Both callers store and bill. There is no exception and no log line; the number looks plausible. Fix: resolve the exponent from the currency code (0 for JPY, 3 for KWD, 2 for most others) and scale by `10 ** exponent`.",
+      },
+      {
+        title: "Float conversion and binary rounding on a half-cent",
+        where: "line 7, `(json['amount'] as num).toDouble()` then line 8's `round()`",
+        body: "`toDouble` gives a binary double. A decimal 1.005 is not exactly representable and the value that lands is slightly less, so `amount * 100` is already just under the 100.5 midpoint — I checked: `1.005 * 100` is `100.49999999999999`. `round()` then returns 100 rather than 101, and because the value sits under the midpoint no tie-break rule can recover the cent. For a two-decimal currency this is one cent off, silently. Fix: parse the partner's decimal string or use a `package:fixnum`/`decimal` type and round with an explicit mode (half-up, or the partner's stated rule) on the exact value, not a binary approximation.",
+      },
+    ],
+  },
+
+  /* ---- drill 62 ---------------------------------------------------------- */
+  62: {
+    verdict: "approve",
+    reason:
+      "Every tag on the resource comes from a validated variable or a constant, and the merge does not introduce a path to a mutable or unsafe value. The `environment` and `team` variables are the only user-supplied inputs, the brief says they are validated nonempty identifiers, and `local.required_tags` is a `map` literal built from those validated values. `merge(local.required_tags, { Purpose = \"archive\" })` produces a new map with no side effects. Approve.",
+    findings: [],
+  },
+
+  /* ---- drill 63 ---------------------------------------------------------- */
+  63: {
+    verdict: "request-changes",
+    reason:
+      "The `pull_request` trigger lets an unmerged PR run `npm publish` with the repository's `NPM_TOKEN`, and the publish step is guarded by nothing — that is the blocker. For forked PRs the same unguarded step runs with an empty token and fails red in a contributor's PR, which is the minor consequence of the same missing guard.",
+    findings: [
+      {
+        title: "Pull requests can run `npm publish`",
+        where: "`on.pull_request.branches: [main]`, and the `npm publish` step with no `if:` guard",
+        body: "A PR whose base is `main` triggers the `release` job, and nothing in the steps separates push from pull request. `npm publish` receives `NPM_TOKEN` from `secrets`, so for a PR from a trusted contributor — where `secrets` are present — an unmerged commit is published to the registry before it is merged or reviewed. An unmerged, or reverted, package version now lives in the registry and can be `npm install`ed by downstream users. Fix: gate the publish step with `if: github.event_name == 'push'` so PRs run the test step but the release step never executes outside a main-branch push.",
+      },
+      {
+        title: "Forked PRs run the release step without a token and fail red",
+        where: "`on.pull_request` with the `env` block supplying `secrets.NPM_TOKEN`",
+        body: "For an external (fork) PR, `secrets` are withheld by design, so `NODE_AUTH_TOKEN` is empty. The `npm ci && npm test` step still runs, and then `npm publish` runs too — unguarded by any `if:` — with an empty token, failing on an authentication error. A valid, otherwise-passing PR is now red for a reason the contributor cannot see from the PR diff, and the fix is in the workflow, not their code. This is the minor loud consequence of the same unguarded step: the `if:` guard above removes the step from fork PRs entirely, which also removes this spurious failure. Fix: the same `if: github.event_name == 'push'` on the publish step.",
+      },
+    ],
+  },
+
+  /* ---- drill 64 ---------------------------------------------------------- */
+  64: {
+    verdict: "request-changes",
+    reason:
+      "The image never receives the build output the app needs at runtime, and the healthprobe succeeds before the database is ready. Both are silent in the sense that the container starts and the orchestrator accepts it.",
+    findings: [
+      {
+        title: "Build artifact is not in the image",
+        where: "`COPY . .` with `dist` excluded from the Docker context",
+        body: "`npm ci --omit=dev` installs production deps only. `COPY . .` respects `.dockerignore`, which excludes `dist`. `server.js` imports a file from `dist`, but that file is not in the image. At startup the import resolves and fails immediately — the container exits with `Cannot find module ./dist/…`. The orchestrator retries, the container exits again, and the image is unusable. Fix: add a build stage (or run `npm run build` before `--omit=dev`), and `COPY --from=build dist ./dist` into the runtime image.",
+      },
+      {
+        title: "Health probe succeeds before readiness",
+        where: "`HEALTHCHECK … node -e \"require('node:net').connect(3000, '127.0.0.1').on('connect', …)\"`",
+        body: "The app binds 3000 before its database connection is established (per the brief). The probe connects to the TCP port and exits 0 the moment the connection is accepted — which happens before the DB query that sets the app's ready state. The orchestrator marks the instance healthy, routes traffic to it, and the first request fails. Fix: probe an HTTP endpoint that returns 200 only after the database connection is established and the app is ready to serve.",
+      },
+    ],
+  },
+
+  /* ---- drill 65 ---------------------------------------------------------- */
+  65: {
+    verdict: "request-changes",
+    reason:
+      "The retry semantics are unsafe on a non-idempotent store: a timeout after a committed write causes `All` to throw, and the caller retries the entire list, duplicating the first path. This is the blocker.",
+    findings: [
+      {
+        title: "Retry duplicates a committed write",
+        where: "`All` — `await store.Put(path)` with no idempotency key",
+        body: "`Put` commits and then times out (a network partition or a slow acknowledgement). `All` sees a thrown exception, stops, and its caller — which retries on any exception from `All` — retries the entire `paths` list. The first path has already been committed; the store receives it twice. For a non-idempotent backend (a ledger, a dedup key, a file with a unique name) the duplicate is a data-integrity error. There is no signal in the exception that says 'the first write may have succeeded'. Fix: supply a stable idempotency key to `Put` so the store deduplicates, or reconcile the committed paths before retrying.",
+      },
+      {
+        title: "Boolean return cannot express partial failure",
+        where: "`public static async Task<bool> All(…)` returns `true`",
+        body: "`All` either returns `true` or throws. A caller that has committed one path and is retrying the rest has no way to know which paths succeeded — the boolean only reports 'the whole thing completed'. If the API contract requires `false` on a rejected path, the current shape cannot produce it: the rejection is an exception, not a `false` return. Fix: return a per-path result (a list of `(path, success)` or a discriminated union) so the caller can inspect which paths committed and which need retry or reconciliation.",
+      },
+    ],
+  },
+
+  /* ---- drill 66 ---------------------------------------------------------- */
+  66: {
+    verdict: "approve",
+    reason:
+      "I traced the three edge cases the hints point at — overflow, zero count, and the end boundary — before approving. `checked_add` rejects the overflow case with `None`, `items.get(0..0)` returns the empty slice for `count = 0`, and `items.get(0..items.len())` returns the full slice for a window at the end. `usize` cannot be negative, so there is no signed-integer underflow to guard. No defect in the stated contract.",
+    findings: [],
+  },
+
+  /* ---- drill 67 ---------------------------------------------------------- */
+  67: {
+    verdict: "request-changes",
+    reason:
+      "The dedup key drops `accountId`, so two valid invoices from different accounts with the same number collide — this is a blocker. Separately, conflicting duplicates (same account and number, different amount) are silently accepted, which hides data corruption.",
+    findings: [
+      {
+        title: "Key drops account identity",
+        where: "`seen.add(it.number.lowercase())` — key is the number only",
+        body: "The contract says invoice numbers are case-insensitive *within* an account; different accounts can reuse the same number. For account A invoice 12 and account B invoice 12, the second is dropped because `seen` already contains `\"12\"`. Both are valid invoices per the contract, and the caller silently loses one payable. Fix: key on `\"${it.accountId}:${it.number.lowercase()}\"` so the same number in different accounts is not treated as a duplicate.",
+      },
+      {
+        title: "Conflicting duplicates are silently accepted",
+        where: "`seen.add(...)` returns `true` for the first, `false` for the second — no amount comparison",
+        body: "Two rows for the same account with the same invoice number but different amounts (e.g., 1000 and 1200 cents) represent conflicting source data. The `filter` keeps the first and drops the second, and no exception, log, or return value tells the caller that a conflict occurred. The caller receives a list with one plausible entry and has no way to know the other was dropped because of a data problem, not a legitimate duplicate. Fix: compare `amountCents` on a duplicate key; if they differ, throw a `DuplicateInvoiceConflictException` or collect the conflict into a separate list the caller must reconcile.",
+      },
+    ],
+  },
+
+  /* ---- drill 68 ---------------------------------------------------------- */
+  68: {
+    verdict: "request-changes",
+    reason:
+      "A string percentage in the coupon is accepted and silently truncated — the contract requires an integer. For `percent = \"12.9\"` the function applies 12%. This is a contract/coercion failure that is silent.",
+    findings: [
+      {
+        title: "String percentage is cast and truncated",
+        where: "`$percent = (int) ($coupon['percent'] ?? 0)`",
+        body: "The function signature takes `int $subtotal` and `array $coupon`, but `$coupon['percent']` is whatever the coupon array holds. For the contract-compliant value 12.9 (a valid integer percentage in the business sense, or a decimal the coupon system allows), `(int) 12.9` is 12. The function applies 12% to the subtotal, which is one-tenth of the intended percentage. There is no exception and no log. The brief says the contract requires an integer; a string in an `array` parameter passes the type system and is silently coerced. Fix: validate `$coupon['percent']` is a `float` or `int` (not a `string`) and in range `0.0..100.0` before arithmetic, rejecting with a `CouponException` if not.",
+      },
+      {
+        title: "Missing coupon is indistinguishable from zero-percent",
+        where: "`$coupon['minimum_cents'] ?? 0` and `$coupon['percent'] ?? 0`",
+        body: "When `$coupon` is empty (the brief says this is how a missing coupon is represented), both `?? 0` defaults activate and the function returns `$subtotal`. A caller who explicitly sets `percent = 0` gets the same return value. The brief says callers need a coupon-applied flag for analytics; with the current single-`int` return, the two cases are indistinguishable. Fix: return a tuple or object `(applied: bool, finalCents: int)` so the caller can distinguish 'coupon applied at 0%' from 'no coupon present'.",
+      },
+    ],
+  },
+
+  /* ---- drill 69 ---------------------------------------------------------- */
+  69: {
+    verdict: "request-changes",
+    reason:
+      "A comma in a label shifts columns; a newline in a label creates a phantom record. Both are silent for the consumer, and both are triggered by realistic label values.",
+    findings: [
+      {
+        title: "Comma in label shifts columns",
+        where: "`io.puts fields.join(',')` — no quoting",
+        body: "For a label `\"West, Inc\"`, `join` produces `123,West, Inc,4500`, and a CSV parser reads three fields: `123`, `West`, `Inc,4500`. The consumer reads `Inc,4500` as the amount, which either fails to parse or is read as four fields with the amount in the wrong column. There is no exception at export time; the failure is in the consumer's row. Fix: use `require \"csv\"; CSV.generate_line(io, [row[:id], row[:label], row[:amount_cents]])` so the encoder quotes and escapes fields that contain comma, quote, or newline.",
+      },
+      {
+        title: "Newline in label creates a phantom record",
+        where: "`io.puts fields.join(',')` with no embedded-newline handling",
+        body: "For a label `\"Line 1\\nLine 2\"`, the output is `123,Line 1\nLine 2,4500`. A CSV reader sees two records: `123,Line 1` (two fields, missing amount) and `Line 2,4500` (label = amount, missing id). Row counts drift, the consumer's first record is malformed, and the second record has the amount in the label column. No error is raised. Fix: the same `CSV.generate_line` fix — the encoder wraps the field in quotes and escapes internal quotes, so the newline is contained within a single quoted field and the consumer reads one record.",
+      },
+    ],
+  },
+
+  /* ---- drill 70 ---------------------------------------------------------- */
+  70: {
+    verdict: "approve",
+    reason:
+      "I traced the four boundary cases — `offset = 0`, `offset = count`, `offset > count`, and `limit` exceeding the remaining elements — before approving. `precondition` rejects negative input as stated in the docstring, `start` is clamped to `count` so an offset beyond the end returns an empty slice, and `count - start` is always nonnegative because `start <= count`. `start + min(limit, remaining)` never overflows because both `start` and `remaining` are bounded by `items.count`. No defect in the stated contract.",
+    findings: [],
+  },
+
+  /* ---- drill 71 ---------------------------------------------------------- */
+  71: {
+    verdict: "request-changes",
+    reason:
+      "The cache key is the SKU only; currency is not part of the key. After `quote(\"hat\", \"USD\")` stores 1200, `quote(\"hat\", \"JPY\")` returns 1200 without calling `fetch` — the value is the wrong unit. This is a blocker.",
+    findings: [
+      {
+        title: "Cache key omits currency",
+        where: "`_values.putIfAbsent(sku, fetch)` — key is `sku` only",
+        body: "`putIfAbsent` stores the value under `sku`. After `quote(\"hat\", \"USD\", ...)` returns 1200 and stores it under `\"hat\"`, a subsequent `quote(\"hat\", \"JPY\", ...)` finds `\"hat\"` in the map and returns 1200 without ever calling `fetch`. The caller receives a USD value as if it were JPY. `1200` is a plausible minor-unit amount for either currency, so no exception is raised and the wrong unit flows into the billing calculation. Fix: key by `\"$sku|$currency\"` or use a nested map so the key includes both the SKU and the requested currency.",
+      },
+      {
+        title: "Fetcher can be stale for the process lifetime",
+        where: "`putIfAbsent` has no TTL or invalidation",
+        body: "If the upstream price for `\"hat\"` in USD changes from 1200 to 1500, and a `quote` has already been made for `(\"hat\", \"USD\")`, every subsequent `quote(\"hat\", \"USD\", ...)` returns 1200 forever. The brief says prices can change between calls. There is no mechanism — no TTL, no version key, no eviction — that would cause the cache to call `fetch` again. The stale value is indistinguishable from a fresh one. Fix: add a timestamp to the key (`\"$sku|$currency|$epoch\"`), use a TTL-based cache, or have the caller pass a version/staleness hint that invalidates the entry.",
+      },
+    ],
+  },
+
+  /* ---- drill 72 ---------------------------------------------------------- */
+  72: {
+    verdict: "request-changes",
+    reason:
+      "`min_size = 1` violates the stated production requirement of two serving instances, and `replicas = 0` (valid in preview) makes `max_size = 0` with `min_size = 1`, which Terraform rejects. Both are boundary/contract failures.",
+    findings: [
+      {
+        title: "`replicas = 0` with `min_size = 1` is invalid",
+        where: "`max_size = var.replicas` (0 in preview) and `min_size = 1` (hard-coded)",
+        body: "For a preview environment with `replicas = 0`, `max_size = 0`, `desired_capacity = 0`, `min_size = 1`. Terraform validates `min_size <= max_size` for an ASG group and rejects the resource. The preview environment cannot scale to zero — a common and valid configuration — and the apply fails with a validation error. Fix: set `min_size = (var.environment == \"preview\" ? 0 : max(1, var.replicas))` or validate `replicas >= 1` in a `precondition` and remove the preview case from this resource.",
+      },
+      {
+        title: "`replicas = 1` in production violates the availability contract",
+        where: "no `precondition` or `count` guard on `replicas >= 2` for production",
+        body: "The brief requires at least two serving instances during a deploy. For `replicas = 1` in production, all of `min_size = 1`, `max_size = 1`, `desired_capacity = 1` satisfy Terraform's validation, and a single-instance ASG is created. One deploy cycle and the service is down. There is no exception and no validation error — the resource applies cleanly. Fix: add `precondition { condition = var.environment != \"production\" || var.replicas >= 2, error_message = \"Production requires at least 2 replicas\" }` and set `min_size = max(2, var.replicas)` for production.",
+      },
+    ],
+  },
+
+  /* ---- drill 73 ---------------------------------------------------------- */
+  73: {
+    verdict: "request-changes",
+    reason:
+      "`npm install` can rewrite the lockfile in CI, so tests do not run against the committed dependency set. The second issue — `continue-on-error: true` on the test step — means a failing test does not fail the job, and a broken change merges as green.",
+    findings: [
+      {
+        title: "`npm install` may rewrite the lockfile in CI",
+        where: "`- run: npm install` after `actions/cache@v4` restores `node_modules`",
+        body: "`npm install` resolves from `package.json` and can update `package-lock.json` if the two disagree. In CI, this means the test run uses a dependency set that differs from what was committed, and the lockfile in the workspace is modified. If the test passes, CI reports green; the committed lockfile is now stale relative to what was tested. Fix: use `npm ci`, which installs exactly from the lockfile and fails on a mismatch — the brief states the lockfile is committed and CI must test those versions.",
+      },
+      {
+        title: "`continue-on-error: true` masks test failure",
+        where: "`- run: npm test` with `continue-on-error: true`",
+        body: "For a failing test, `npm test` exits non-zero, but `continue-on-error: true` makes the step exit 0. The job and the workflow report success. A code change that breaks the test suite merges as a green build. The test output is in the logs, but no CI badge, no branch protection check, no required-status-check flag is set to red. Fix: remove `continue-on-error: true` from the test step; the default behaviour (a non-zero exit fails the step) is what a CI pipeline needs.",
+      },
+    ],
+  },
+
+  /* ---- drill 74 ---------------------------------------------------------- */
+  74: {
+    verdict: "approve-with-comments",
+    reason:
+      "The image builds and runs correctly as written: `npm ci --omit=dev` runs as root (the default user before `USER node`), installs production dependencies to `/app/node_modules`, and `USER node` switches to the unprivileged user for the runtime. The only issue is a comment that misstates the user under which the install runs — a documentation nit with no behavioural consequence.",
+    findings: [
+      {
+        title: "Comment names the wrong user for the install step",
+        where: "`# Install production dependencies as the node user.` before `RUN npm ci --omit=dev`",
+        body: "The comment says the install runs as `node`, but `USER node` is on the *next* line, after the `RUN npm ci`. `RUN` commands execute as `root` (the default user in `node:22-alpine`) unless a `USER` directive precedes them, so the install runs as `root` and the files in `/app/node_modules` are owned by `root`. The runtime step `CMD [\"node\", \"server.js\"]` runs as `node` and reads those files, which works because the files are `0644` and the directory is `0755`. The mistake is in the comment, not in the runtime. Fix: correct the comment to `# Install production dependencies (runs as root in the build stage).`",
+      },
+    ],
+  },
+
+  /* ---- drill 75 ---------------------------------------------------------- */
+  75: {
+    verdict: "request-changes",
+    reason:
+      "A manifest whose last line has no newline causes `read` to return non-zero after filling the variable, so the loop body never runs for that path — the last file is silently missing from the digest. A path beginning with `-` is parsed as a `sha256sum` flag rather than a filename.",
+    findings: [
+      {
+        title: "Final unterminated path is skipped",
+        where: "`while IFS= read -r path … done < \"$manifest\"` without `|| [[ -n $path ]]`",
+        body: "`read` reads until a newline or EOF. For a one-line manifest `foo/bar` with no trailing newline, `read` fills `path` with `foo/bar` but returns 1 (EOF), the `while` condition is false, and the loop body never runs. The digest output is empty — the only file is absent, and no error is raised. `set -euo pipefail` does not catch this because the loop exits cleanly with status 0. Fix: use `while IFS= read -r path || [[ -n $path ]]; do … done < \"$manifest\"` so the final line is processed even without a terminator.",
+      },
+      {
+        title: "Path beginning with `-` is interpreted as a flag",
+        where: "`sha256sum \"$path\"` with no `--`",
+        body: "For a relative path `-b`, `sha256sum \"$path\"` expands to `sha256sum -b`, and `sha256sum` treats `-b` as its `--binary` flag (or, in some versions, as an unknown single-character option). The command produces either a different output format or a usage error rather than the hash of the file named `-b`. Fix: `sha256sum -- \"$path\"` or `sha256sum \"./$path\"` (the `./` prefix makes it unambiguously a path, not a flag).",
+      },
+    ],
+  },
+
+  /* ---- drill 76 ---------------------------------------------------------- */
+  76: {
+    verdict: "request-changes",
+    reason:
+      "`done / total` is integer division for two `int64` operands, so `static_cast<double>(done / total)` first computes the integer quotient and then converts. For `done = 1, total = 2` the function returns 0.0 rather than 0.5.",
+    findings: [
+      {
+        title: "Integer division before cast to double",
+        where: "`return static_cast<double>(done / total)`",
+        body: "`done` and `total` are both `std::int64_t`, so `done / total` is integer division, discarding the fractional part. The `static_cast<double>` applies to the *result* of the integer division, not to the operands. For `done = 1, total = 2`: `1 / 2` is 0 in integer arithmetic, and `double(0)` is 0.0. The caller sees 0.0 instead of 0.5. For `done = 99, total = 100`: `99 / 100` is 0, returns 0.0 instead of 0.99. Fix: `return static_cast<double>(done) / static_cast<double>(total)` or `return done / static_cast<double>(total)`.",
+      },
+      {
+        title: "`total = 0` returns `nullopt` rather than the agreed 1.0",
+        where: "`if (total == 0) return std::nullopt`",
+        body: "The brief says 'an empty task is complete and returns 1.0.' For `total = 0, done = 0` the function returns `nullopt`, and a dashboard that renders `completion()` as a percentage sees a missing value instead of 100%. There is no exception, just a `nullopt` that the caller must know to map to 'complete'. Fix: `if (total == 0) return 1.0;` to match the stated contract, or document that the caller must map `nullopt` to 1.0 and update the brief to say so.",
+      },
+    ],
+  },
+
+  /* ---- drill 77 ---------------------------------------------------------- */
+  77: {
+    verdict: "request-changes",
+    reason:
+      "`strconv.ParseFloat` and the `int64(n * 100)` conversion truncate a cent for at least some valid decimal inputs, and fractional cents are silently truncated without rejection — the function contract does not state what happens for more than two decimal places.",
+    findings: [
+      {
+        title: "Float-to-int64 truncation loses a cent",
+        where: "lines 5–7, `strconv.ParseFloat(amount, 64)` then `int64(n * 100)`",
+        body: "For `amount = \"0.29\"`, `ParseFloat` returns a `float64` that is very close to 0.29 but is a binary representation. `0.29 * 100` in IEEE 754 is slightly less than 29 (e.g. 28.999999999999996), and `int64(28.999999999999996)` truncates to 28. The caller receives 28 cents for a 29-cent amount. The error in `ParseFloat` is nil, so no exception is raised; the wrong value is returned silently. Fix: parse the decimal string by hand (split on the decimal point, parse the integer and fractional parts as integers, and compose the cent value with explicit rounding), or use a `decimal`/`gmp` package and avoid the binary float intermediate.",
+      },
+      {
+        title: "Fractional cents are silently truncated",
+        where: "line 7, `return int64(n * 100), nil` — no check on the fractional part beyond two decimals",
+        body: "For `amount = \"1.005\"` (a valid three-decimal USD amount in some gateway contracts), `n * 100 = 100.5`, and `int64(100.5)` is 100. The function accepts 1.005 dollars, silently truncates to 100 cents, and returns without error. The caller has no way to know the input has more precision than the function can represent. The brief says amounts can be negative for refunds; for `-0.005`, the truncation direction goes toward zero for a negative value, so the refund is slightly smaller. Fix: reject inputs with more than two fractional digits (or more precise than a cent), or apply an explicit rounding rule (half-up, half-to-even) and document it in the contract.",
+      },
+    ],
+  },
+
+  /* ---- drill 78 ---------------------------------------------------------- */
+  78: {
+    verdict: "approve",
+    reason:
+      "I traced `offset = 0`, `offset = count`, `offset = int.MaxValue`, and `limit = int.MaxValue` before approving. The `offset < 0` check is the only way in for negative values, and `limit < 0` is caught by the same guard. `start = Math.Min(offset, items.Count)` clamps the offset so `start` is always in `[0, count]`. `count - start` is always nonnegative. `start + i` for `i < min(limit, count - start)` never exceeds `items.Count`, so the index is always in range. No out-of-range access, no overflow. Approve.",
+    findings: [],
+  },
+
+  /* ---- drill 79 ---------------------------------------------------------- */
+  79: {
+    verdict: "request-changes",
+    reason:
+      "The `<= :end_at` boundary means a row at the shared endpoint is counted in both adjacent windows, so aggregate totals double-count. Separately, accounts with no rows in the interval do not appear in the result at all — the brief says they should have zero balance.",
+    findings: [
+      {
+        title: "Inclusive end double-counts the boundary",
+        where: "`WHERE posted_at >= :start_at AND posted_at <= :end_at`",
+        body: "Adjacent windows `[0, 1)` and `[1, 2)` share the point 1. For a row with `posted_at = 1`, the first window (`<= 1`) includes it and the second window (`>= 1`) also includes it. The row is counted in both windows, so the sum of adjacent window balances exceeds the total balance. The bug is invisible in a single window query; it only shows up when adjacent windows are compared or summed. Fix: use half-open intervals — `posted_at >= :start_at AND posted_at < :end_at` — so each row belongs to exactly one window.",
+      },
+      {
+        title: "Accounts with no entries are missing from the result",
+        where: "`FROM ledger_entries … GROUP BY account_id`",
+        body: "The query reads from `ledger_entries`, so the result set contains only accounts that have at least one row in the interval. For an account with zero posted rows in the window, there is no row to `GROUP BY`, and `COALESCE(SUM(amount_cents), 0)` is never evaluated for that account. The consumer does not receive the account's required zero-balance row. `COALESCE` handles the NULL-sum case (rows exist but sum to NULL, which PostgreSQL does not produce for integer sums), but it cannot invent a row for an account that has no entries. Fix: start from the `accounts` table and `LEFT JOIN` `ledger_entries` on `(account_id, posted_at in window, status = 'posted')`, then `GROUP BY accounts.account_id` so every account appears, with a zero sum when no ledger rows match.",
+      },
+    ],
+  },
 };
 
 export const MODEL_REVIEWS: Record<number, ModelReview> = REVIEWS;
