@@ -812,9 +812,9 @@ export async function run(cdpBase) {
   check('timed write-up is recorded on the attempt', await evalJs(`JSON.parse(localStorage.getItem('${progressKey}')).drills[8].writeup.mechanism === true`));
 
   await evalJs(`localStorage.setItem('${progressKey}', JSON.stringify({version: 3,
-    drills: {31: {note: 'A review compared against the answer key.', revealed: true, hintLevel: 0, caught: {},
+    drills: {60: {note: 'A review compared against the answer key.', revealed: true, hintLevel: 0, caught: {},
       writeup: {mechanism: 'true', input: 1, signal: null, fix: false, unknown: true}}},
-    reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/drill/31'`);
+    reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/drill/60'`);
   await send('Page.reload');
   await sleep(900);
   check('missing model review retains answer prose and write-up standard', await evalJs(`
@@ -822,15 +822,15 @@ export async function run(cdpBase) {
     document.querySelectorAll('.writeup-rubric input').length === 4`));
   check('malformed optional rubric values do not fabricate a score', await evalJs(`
     document.querySelector('.writeup-score').textContent.includes('not scored') &&
-    JSON.stringify(JSON.parse(localStorage.getItem('${progressKey}')).drills[31].writeup) === '{"fix":false}'`));
+    JSON.stringify(JSON.parse(localStorage.getItem('${progressKey}')).drills[60].writeup) === '{"fix":false}'`));
   await click('Record no criteria met');
   await sleep(200);
   check('an explicit zero score is distinct from an unscored review', await evalJs(`
     document.querySelector('.writeup-score').textContent.includes('0%')`));
   await evalJs(`localStorage.setItem('bug-finder:timed:v1', JSON.stringify({
-    startedAt: Date.now(), secondsPerDrill: 60, drillIds: [31], at: 1,
-    drillStartedAt: Date.now(), notes: {31: 'A different timed review.'}, spent: {31: 10},
-    phase: 'debrief', caught: {}, writeups: {31: {mechanism: true, input: true, signal: true, fix: true}}
+    startedAt: Date.now(), secondsPerDrill: 60, drillIds: [60], at: 1,
+    drillStartedAt: Date.now(), notes: {60: 'A different timed review.'}, spent: {60: 10},
+    phase: 'debrief', caught: {}, writeups: {60: {mechanism: true, input: true, signal: true, fix: true}}
   })); location.hash = '#/timed'`);
   await send('Page.reload');
   await sleep(900);
@@ -838,7 +838,7 @@ export async function run(cdpBase) {
   await sleep(200);
   check('timed repeat keeps its write-up separate from the original', await evalJs(`
     (() => {const p = JSON.parse(localStorage.getItem('${progressKey}'));
-      return p.drills[31].writeup.mechanism === false && p.reviews[31][0].writeup.mechanism === true;})()`));
+      return p.drills[60].writeup.mechanism === false && p.reviews[60][0].writeup.mechanism === true;})()`));
 
   /* ------------------------------ console -------------------------------- */
 

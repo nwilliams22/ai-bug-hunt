@@ -32,7 +32,7 @@ code that should exist and doesn't.
 Each drill is **gated**. You must write your review before the answers unlock. Recognition
 feels like learning and isn't.
 
-**A model review for the first 30 drills.** After you have written yours, you can compare
+**A model review for the first 59 drills.** After you have written yours, you can compare
 it against the review a strong reviewer would actually file: a verdict up front
 (approve / approve-with-comments / request-changes), one stated reason, then the findings
 ordered by severity. Finding every defect and writing them up unusably still fails the
