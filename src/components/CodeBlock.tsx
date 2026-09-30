@@ -20,6 +20,11 @@ import "prismjs/components/prism-ruby";
 import "prismjs/components/prism-markup-templating";
 import "prismjs/components/prism-php";
 import "prismjs/components/prism-bash";
+import "prismjs/components/prism-swift";
+import "prismjs/components/prism-dart";
+import "prismjs/components/prism-hcl";
+import "prismjs/components/prism-yaml";
+import "prismjs/components/prism-docker";
 
 import type { Drill, Lang } from "../types";
 
@@ -38,6 +43,11 @@ const PRISM_LANG: Record<string, string> = {
   Ruby: "ruby",
   PHP: "php",
   Bash: "bash",
+  Swift: "swift",
+  Dart: "dart",
+  Terraform: "hcl",
+  YAML: "yaml",
+  Dockerfile: "docker",
   py: "python",
   rs: "rust",
   tsx: "tsx",
@@ -65,6 +75,13 @@ const PRISM_LANG: Record<string, string> = {
   php: "php",
   bash: "bash",
   sh: "bash",
+  swift: "swift",
+  dart: "dart",
+  tf: "hcl",
+  hcl: "hcl",
+  yml: "yaml",
+  yaml: "yaml",
+  docker: "docker",
   diff: "diff",
 };
 

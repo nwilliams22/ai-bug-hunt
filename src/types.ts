@@ -21,7 +21,12 @@ export type Lang =
   | "Kotlin"
   | "Ruby"
   | "PHP"
-  | "Bash";
+  | "Bash"
+  | "Swift"
+  | "Dart"
+  | "Terraform"
+  | "YAML"
+  | "Dockerfile";
 
 export type Level = "Warm-up" | "Standard" | "Hard";
 
