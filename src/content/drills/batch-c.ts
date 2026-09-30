@@ -186,10 +186,6 @@ export const DRILLS_BATCH_C: Drill[] = [
         title: "Session expiry becomes a thousand times longer",
         body: "sessions.ts still supplies SESSION_TTL_MS=900000 to put. The changed helper multiplies it by 1000, so a fifteen-minute session stays valid for about 10.4 days. Both arguments are numbers, so the type checker accepts the security regression; reviewing only the updated search caller misses it.",
         fix: "Migrate every caller atomically, or introduce putSeconds as a distinct API while preserving the old contract. Give durations distinct types and verify the session is absent after fifteen minutes." },
-      { family: "coercion", signal: "silent", severity: "major",
-        title: "Zero no longer disables search caching",
-        body: "With SEARCH_TTL_SECONDS='0', Number yields 0 and || replaces it with 60. A deployment explicitly opting out of caching still serves stale results for a minute. This is separate from the shared helper's unit change.",
-        fix: "Default only when the setting is absent; preserve an explicit zero. Test omitted, zero and positive settings through cacheSearch and get." },
     ],
   },
   {

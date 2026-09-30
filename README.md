@@ -16,10 +16,10 @@ construction rather than by inspiration. One lesson per pass, plus five on worki
 review: reading a diff, writing the finding, severity and the verdict, reviewing the tests,
 and pacing under a clock. 14 lessons.
 
-**59 drills.** Plausible code, including clean and near-clean reviews, across 14 languages — Python,
-JavaScript, TypeScript, React, SQL, Rust, Go, Java, C#, C++, Kotlin, Ruby, PHP and Bash —
+**79 drills.** Plausible code, including clean and near-clean reviews, across 19 languages — Python,
+JavaScript, TypeScript, React, SQL, Rust, Go, Java, C#, C++, Kotlin, Ruby, PHP, Bash, Swift, Dart, Terraform, YAML and Dockerfile —
 with 14 of them presented as *diffs*, which is the shape the paid work actually takes.
-**198 planted defects** in total, up to six per drill and usually spanning several
+**227 planted defects** in total, up to six per drill and usually spanning several
 families, because the common failure of a real reviewer is not finding nothing: it is
 finding the first thing and stopping.
 

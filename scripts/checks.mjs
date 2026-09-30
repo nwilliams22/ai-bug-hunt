@@ -232,6 +232,13 @@ export async function run(cdpBase) {
     "a language added after the first build highlights (C++)",
     (await evalJs(`document.querySelectorAll(".code .token").length`)) > 10,
   );
+  for (const [id, language] of [[60, "Swift"], [61, "Dart"], [62, "Terraform"],
+    [63, "YAML"], [64, "Dockerfile"]]) {
+    await evalJs(`location.hash = "#/drill/${id}"`);
+    await sleep(200);
+    check(`${language} drill uses its Prism grammar`,
+      (await evalJs(`document.querySelectorAll(".code .token").length`)) > 0);
+  }
 
   /* ------------------------- timed mode, end to end ---------------------- */
 
@@ -449,7 +456,7 @@ export async function run(cdpBase) {
   }
   check("multi-file timed run reaches debrief with all four reviews",
     (await evalJs(`document.querySelectorAll('blockquote.wrote').length`)) === 4 &&
-    (await evalJs(`document.querySelectorAll('.def').length`)) === 8);
+    (await evalJs(`document.querySelectorAll('.def').length`)) === 7);
 
   /* --------------------------- repeat review queue ------------------------ */
 
