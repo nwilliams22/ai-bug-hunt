@@ -79,3 +79,12 @@ export function practiceOrder(): Drill[] {
   };
   return [...DRILLS].sort((a, b) => rank(a.id) - rank(b.id) || a.id - b.id);
 }
+
+/**
+ * 1-based position in the practice order. Lists show this rather than the
+ * permanent id: the order is deliberately not id order, so an id in a list
+ * reads as a meaningless number. The id stays visible on the drill itself.
+ */
+export function practicePosition(id: number): number {
+  return practiceOrder().findIndex((d) => d.id === id) + 1;
+}

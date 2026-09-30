@@ -132,10 +132,13 @@ export function DrillView({ id, state, update }: Props) {
           <span className="meta-note">
             {state.revealed ? `${drill.defects.length} findings in the answer` : "Approve or identify justified findings"}
           </span>
+          <span className="meta-id" title="The left number is where this sits in your practice order. The id never changes — quote it when you report a wrong answer key.">
+            {index + 1} of {DRILLS.length} · id {drill.id}
+          </span>
         </div>
 
         <h2 className="card-h">
-          <span className="card-n">{drill.id}</span>
+          <span className="card-n">{index + 1}</span>
           {drill.title}
         </h2>
 

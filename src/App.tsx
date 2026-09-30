@@ -212,7 +212,7 @@ function Sidebar({
 
         <section className="side-sec">
           <p className="side-h">Drills</p>
-          {practiceOrder().map((d) => {
+          {practiceOrder().map((d, i) => {
             const st = drillState(progress, d.id);
             return (
               <a
@@ -224,7 +224,7 @@ function Sidebar({
                 <span className="side-mark">
                   {st.revealed ? "●" : st.note ? "◐" : "○"}
                 </span>
-                <span className="side-n">{d.id}</span>
+                <span className="side-n">{i + 1}</span>
                 {d.title}
               </a>
             );

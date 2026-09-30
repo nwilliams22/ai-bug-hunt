@@ -83,7 +83,7 @@ export function DrillTable({ progress }: { progress: Progress }) {
     <table className="drill-table">
       <thead>
         <tr>
-          <th />
+          <th className="num">#</th>
           <th>Drill</th>
           <th>Language</th>
           <th>Level</th>
@@ -92,12 +92,12 @@ export function DrillTable({ progress }: { progress: Progress }) {
         </tr>
       </thead>
       <tbody>
-        {practiceOrder().map((d) => {
+        {practiceOrder().map((d, i) => {
           const st = drillState(progress, d.id);
           const caught = Object.values(st.caught).filter(Boolean).length;
           return (
             <tr key={d.id} data-done={st.revealed ? "1" : "0"}>
-              <td className="num dim">{d.id}</td>
+              <td className="num dim">{i + 1}</td>
               <td>
                 <a href={href({ view: "drill", id: d.id })}>{d.title}</a>
                 {d.shape === "diff" && <span className="mini-tag">diff</span>}

@@ -1,6 +1,7 @@
 import { LESSONS, LESSON_BY_ID, MODULES } from "../content/lessons";
 import { DRILL_BY_ID } from "../content/drills";
 import { Markdown } from "../components/Markdown";
+import { practicePosition } from "../review";
 import { href } from "../route";
 
 interface Props {
@@ -40,6 +41,11 @@ export function LessonView({ id, read, setRead }: Props) {
         {lesson.practice && lesson.practice.length > 0 && (
           <div className="practice">
             <p className="practice-h">Practise this</p>
+            <p className="practice-note">
+              Optional, and nothing is gated on it — the next lesson is open whether
+              you do these or not. They are ordinary drills from the Drills list in the
+              sidebar, at the numbers shown below, picked because they exercise this lesson.
+            </p>
             <ul>
               {lesson.practice.map((n) => {
                 const d = DRILL_BY_ID.get(n);
@@ -47,7 +53,7 @@ export function LessonView({ id, read, setRead }: Props) {
                 return (
                   <li key={n}>
                     <a href={href({ view: "drill", id: n })}>
-                      {d.id}. {d.title}
+                      {practicePosition(n)}. {d.title}
                     </a>{" "}
                     <span className="practice-lang">{d.lang}</span>
                   </li>

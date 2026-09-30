@@ -218,6 +218,12 @@ a {
   font-weight: 600;
   margin: 18px 0 5px;
 }
+/* A label that wraps its own control needs a gap; a <p> heading does not. */
+label.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
 .brief {
   font-size: 13.5px;
   margin: 0 0 14px;
@@ -237,6 +243,12 @@ a {
 }
 .meta-note {
   color: var(--muted);
+}
+.meta-id {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .badge {
   border: 1px solid var(--rule);
@@ -727,6 +739,12 @@ a {
   font-size: 13px;
   font-weight: 600;
   margin: 0 0 6px;
+}
+.practice-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 8px;
+  max-width: 62ch;
 }
 .practice ul,
 .plain-list {

@@ -743,6 +743,39 @@ export async function run(cdpBase) {
   await send('Page.reload');
   await sleep(900);
   check('practice order survives reload', practiceBefore === await practiceIds());
+  // The order is not id order, so a list that printed ids would print noise.
+  const seq = (n) => Array.from({ length: n }, (_, i) => String(i + 1)).join(',');
+  const tableNums = await evalJs(`Array.from(document.querySelectorAll('.drill-table tbody tr'))
+    .map(r => r.children[0].textContent.trim()).join(',')`);
+  check('drill table numbers its rows by position, not by id',
+    tableNums === seq(tableNums.split(',').length), tableNums.slice(0, 40));
+  const sideNums = await evalJs(`Array.from(document.querySelectorAll('.side-n'))
+    .map(e => e.textContent.trim()).join(',')`);
+  check('sidebar numbers drills by position, not by id',
+    sideNums === seq(sideNums.split(',').length), sideNums.slice(0, 40));
+  check('every drill appears in both lists',
+    sideNums.split(',').length === tableNums.split(',').length);
+  // A lesson's practice link must name the number the sidebar shows for it.
+  const firstHref = practiceBefore.split(',')[0];
+  await evalJs(`location.hash = '#/lesson/the-job'`);
+  await sleep(300);
+  check('lesson practice links carry the position and say nothing is gated', await evalJs(`
+    /^\\d+\\. /.test(document.querySelector('.practice a').textContent.trim()) &&
+    document.querySelector('.practice-note').textContent.includes('nothing is gated')`));
+  check('lesson practice position matches the sidebar', await evalJs(`
+    (() => { const a = document.querySelector('.practice a');
+      const n = a.textContent.trim().split('.')[0];
+      const side = document.querySelector('.side-sec a[href="' + a.getAttribute('href') + '"]');
+      return side !== null && side.querySelector('.side-n').textContent.trim() === n; })()`));
+  await evalJs(`location.hash = '${firstHref}'`);
+  await sleep(300);
+  // Measured, not asserted from the stylesheet: the text must not touch the select.
+  check('the verdict label leaves a gap before its control', await evalJs(`
+    (() => { const l = document.querySelector('label.label');
+      const sel = l.querySelector('select');
+      const r = document.createRange();
+      r.selectNodeContents(l.firstChild);
+      return sel.getBoundingClientRect().left - r.getBoundingClientRect().right >= 6; })()`));
   await evalJs(`location.hash = '#/drill/8'`);
   await sleep(200);
   check('write-up rubric stays hidden before reveal', await evalJs(`document.querySelector('.writeup-rubric') === null`));
@@ -817,8 +850,10 @@ export async function run(cdpBase) {
     reviews: {}, lessonsRead: {}, sessions: []})); location.hash = '#/drill/60'`);
   await send('Page.reload');
   await sleep(900);
-  check('missing model review retains answer prose and write-up standard', await evalJs(`
-    document.querySelector('.model-review') === null && document.querySelector('.def-b').textContent.length > 0 &&
+  // Drill 60 had no model review when this fixture was written; every drill has one now,
+  // so the assertion moved from the empty fallback to the populated case beside it.
+  check('a drill renders its model review beside the answer prose and write-up standard', await evalJs(`
+    document.querySelector('.model-review') !== null && document.querySelector('.def-b').textContent.length > 0 &&
     document.querySelectorAll('.writeup-rubric input').length === 4`));
   check('malformed optional rubric values do not fabricate a score', await evalJs(`
     document.querySelector('.writeup-score').textContent.includes('not scored') &&
