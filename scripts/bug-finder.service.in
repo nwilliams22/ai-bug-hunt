@@ -10,7 +10,12 @@ Environment=NODE_ENV=production
 Environment=PORT=@@PORT@@
 Environment=HOST=127.0.0.1
 ExecStart=@@NODE@@ @@DIR@@/scripts/serve.mjs
-Restart=on-failure
+# `always`, not `on-failure`: serve.mjs handles SIGTERM and exits 0, so any
+# stray signal — a session cleanup, a pkill that catches the wrong tree — is a
+# *successful* exit as far as systemd is concerned, and `on-failure` leaves an
+# always-on service down silently. An explicit `systemctl stop` is still
+# honoured, so redeploy and uninstall are unaffected.
+Restart=always
 RestartSec=3
 
 # It serves static files from one directory on loopback and needs nothing else.
