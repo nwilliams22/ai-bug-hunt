@@ -4,11 +4,11 @@ import { GOTCHAS } from "../content/gotchas";
 import { href } from "../route";
 import type { Progress } from "../types";
 import { drillState } from "../storage";
-import { dueReviews } from "../review";
+import { dueReviews, practiceOrder } from "../review";
 
 export function HomeView({ progress }: { progress: Progress }) {
   const nextLesson = LESSONS.find((l) => !progress.lessonsRead[l.id]);
-  const nextDrill = DRILLS.find((d) => !drillState(progress, d.id).revealed);
+  const nextDrill = practiceOrder().find((d) => !drillState(progress, d.id).revealed);
   const due = dueReviews(progress);
 
   return (
@@ -92,7 +92,7 @@ export function DrillTable({ progress }: { progress: Progress }) {
         </tr>
       </thead>
       <tbody>
-        {DRILLS.map((d) => {
+        {practiceOrder().map((d) => {
           const st = drillState(progress, d.id);
           const caught = Object.values(st.caught).filter(Boolean).length;
           return (

@@ -57,3 +57,25 @@ export function reviewSchedule(progress: Progress): DueReview[] {
 export function dueReviews(progress: Progress, now = Date.now()): DueReview[] {
   return reviewSchedule(progress).filter((entry) => entry.dueAt <= now);
 }
+
+let memorySeed = 0;
+
+/** A stored seed makes presentation stable without changing permanent drill ids. */
+export function practiceOrder(): Drill[] {
+  const key = "bug-finder:practice-seed:v1";
+  let seed = memorySeed;
+  try { seed = Number(localStorage.getItem(key)) || memorySeed; } catch { /* unavailable storage */ }
+  if (!Number.isSafeInteger(seed) || seed < 1 || seed > 0xffffffff) {
+    seed = Math.floor(Math.random() * 0xffffffff) + 1;
+    try { localStorage.setItem(key, String(seed)); } catch { /* memory-only fallback */ }
+  }
+  memorySeed = seed;
+  // Rank each id independently so newly added drills preserve existing relative order.
+  const rank = (id: number) => {
+    let n = (id ^ seed) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+    return (n ^ (n >>> 16)) >>> 0;
+  };
+  return [...DRILLS].sort((a, b) => rank(a.id) - rank(b.id) || a.id - b.id);
+}
