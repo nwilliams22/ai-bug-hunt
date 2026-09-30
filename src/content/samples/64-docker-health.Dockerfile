@@ -4,5 +4,5 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY . .
 ENV NODE_ENV=production
-HEALTHCHECK --interval=30s CMD wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1
+HEALTHCHECK --interval=30s CMD node -e "require('node:net').connect(3000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
 CMD ["node", "server.js"]

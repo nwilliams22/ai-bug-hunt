@@ -132,7 +132,7 @@ export const DRILLS_BATCH_E: Drill[] = [
   "title": "Docker health",
   "shape": "function",
   "code": s64.trim(),
-  "brief": "The app binds port 3000 and serves /health; its build output lives in dist and is ignored by Docker context. Readiness requires a database connection.",
+  "brief": "The app binds port 3000 before its database connection completes; readiness requires that connection. Its build output lives in dist and is ignored by Docker context.",
   "hintRegion": "Inventory which artifacts enter the image and what command starts.",
   "hintFamily": "Use contract and failure passes.",
   "defects": [
@@ -146,9 +146,9 @@ export const DRILLS_BATCH_E: Drill[] = [
     },
     {
       "family": "failure",
-      "title": "Health probe may report success before readiness",
-      "body": "If /health returns 200 before the application has connected to its required database, the orchestrator marks an unusable instance healthy.",
-      "fix": "Make /health reflect the documented readiness dependency.",
+      "title": "Port probe reports success before readiness",
+      "body": "The probe exits successfully as soon as port 3000 accepts a connection, even while the required database connection is still pending. The orchestrator marks an unusable instance healthy.",
+      "fix": "Probe an endpoint that returns success only after the database connection is ready.",
       "severity": "major",
       "signal": "silent"
     }
